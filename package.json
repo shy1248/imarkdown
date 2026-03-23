@@ -1,0 +1,226 @@
+{
+    "name": "imarkdown-editor",
+    "displayName": "iMarkdown - Markdown WYSIWYG Editor",
+    "description": "Markdown editor with WYSIWYG mode.",
+    "version": "1.0.0",
+    "publisher": "shy1248",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/shy1248/iMarkdown"
+    },
+    "license": "MIT",
+    "engines": {
+        "vscode": "^1.105.1"
+    },
+    "categories": [
+        "Programming Languages",
+        "Formatters"
+    ],
+    "tags": [
+        "markdown",
+        "editor",
+        "wysiwyg",
+        "tiptap"
+    ],
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./dist/extension.js",
+    "icon": "icon.png",
+    "contributes": {
+        "customEditors": [
+            {
+                "viewType": "imarkdown.markdownEditor",
+                "displayName": "%Markdown WYSIWYG Editor%",
+                "priority": "option",
+                "selector": [
+                    {
+                        "filenamePattern": "*.md"
+                    }
+                ]
+            },
+            {
+                "viewType": "imarkdown.markdownEditor",
+                "displayName": "%Markdown WYSIWYG Editor%",
+                "priority": "option",
+                "selector": [
+                    {
+                        "filenamePattern": "*.markdown"
+                    }
+                ]
+            }
+        ],
+        "views": {
+            "explorer": [
+                {
+                    "id": "imarkdown.outline",
+                    "name": "%iMarkdown Outline%",
+                    "when": "imarkdown.editorIsActive",
+                    "icon": ""
+                }
+            ]
+        },
+        "commands": [
+            {
+                "command": "imarkdown.openWysiwygEditor",
+                "title": "%Open in WYSIWYG mode%",
+                "icon": "$(preview)"
+            },
+            {
+                "command": "imarkdown.openDefaultEditor",
+                "title": "%Open in Text Editor%",
+                "icon": "$(note)"
+            },
+            {
+                "command": "imarkdown.exportHTML",
+                "title": "%Export as HTML%"
+            },
+            {
+                "command": "imarkdown.copyAsMarkdown",
+                "title": "%Copy as Markdown%"
+            },
+            {
+                "command": "imarkdown.copyAsPlainText",
+                "title": "%Copy as Plain Text%"
+            },
+            {
+                "command": "imarkdown.scrollToHeading",
+                "title": "%Go to Heading%"
+            }
+        ],
+        "menus": {
+            "editor/context": [
+                {
+                    "command": "imarkdown.openWysiwygEditor",
+                    "title": "%Open in WYSIWYG mode%",
+                    "when": "(resourceExtname == .md || resourceLangId == markdown) && !imarkdown.editorIsActive",
+                    "group": "navigation"
+                }
+            ],
+            "webview/context": [
+                {
+                    "command": "imarkdown.openDefaultEditor",
+                    "title": "%Open in Text Editor%",
+                    "when": "imarkdown.editorIsActive",
+                    "group": "navigation"
+                },
+                {
+                    "command": "imarkdown.exportHTML",
+                    "title": "%Export as HTML%",
+                    "when": "imarkdown.editorIsActive",
+                    "group": "export@1"
+                },
+                {
+                    "command": "imarkdown.copyAsMarkdown",
+                    "title": "%Copy as Markdown%",
+                    "when": "imarkdown.editorIsActive",
+                    "group": "export@1"
+                },
+                {
+                    "command": "imarkdown.copyAsPlainText",
+                    "title": "%Copy as Plain Text%",
+                    "when": "imarkdown.editorIsActive",
+                    "group": "export@1"
+                }
+            ],
+            "commandPalette": [
+                {
+                    "command": "imarkdown.exportHTML",
+                    "when": "imarkdown.editorIsActive"
+                },
+                {
+                    "command": "imarkdown.copyAsMarkdown",
+                    "when": "imarkdown.editorIsActive"
+                },
+                {
+                    "command": "imarkdown.copyAsPlainText",
+                    "when": "imarkdown.editorIsActive"
+                },
+                {
+                    "command": "imarkdown.scrollToHeading",
+                    "when": "false"
+                }
+            ]
+        },
+        "keybindings": [],
+        "configuration": {
+            "title": "iMarkdown",
+            "properties": {
+                "imarkdown.editor.minWidth": {
+                    "type": "number",
+                    "default": 800,
+                    "minimum": 800,
+                    "maximum": 1200,
+                    "description": "%Minimum width of the editor content area (px).%",
+                    "markdownDescription": "%Minimum width of the editor content area in pixels (800–1200).%"
+                },
+                "imarkdown.editor.padding": {
+                    "type": "number",
+                    "default": 50,
+                    "minimum": 50,
+                    "maximum": 100,
+                    "description": "%Left and right padding of the editor content area (px).%",
+                    "markdownDescription": "%Left and right padding of the editor content area in pixels (50–100).%"
+                },
+                "imarkdown.editor.typesetting": {
+                    "type": "string",
+                    "enum": [
+                        "compact",
+                        "moderate",
+                        "loose"
+                    ],
+                    "default": "moderate",
+                    "description": "%Typesetting density of the editor content.%",
+                    "markdownDescription": "%Typesetting density of the editor content.%",
+                    "enumDescriptions": [
+                        "%Compact typesetting (0.1em node spacing).%",
+                        "%Moderate typesetting (0.3em node spacing).%",
+                        "%Loose typesetting (0.5em node spacing).%"
+                    ]
+                },
+                "imarkdown.editor.showLineNumbers": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "%Show line numbers in code blocks.%",
+                    "markdownDescription": "%Show line numbers in code blocks.%"
+                },
+                "imarkdown.image.saveDir": {
+                    "type": "string",
+                    "default": "images",
+                    "description": "%Directory to save pasted images, relative to the document.%",
+                    "markdownDescription": "%Directory to save pasted images. Supports VS Code variables: `${fileDirname}`, `${workspaceFolder}`, `${fileBasename}`, `${fileBasenameNoExtension}`. If the path is relative it is resolved against the document directory.%"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "build:webview": "cd webview-ui && npm run build",
+        "vscode:prepublish": "npm run build:webview && cross-env NODE_ENV=production webpack --mode production",
+        "package:vsix": "vsce package --no-dependencies",
+        "webpack": "npm run build:webview && webpack --mode development",
+        "webpack-dev": "webpack --mode development --watch",
+        "test-compile": "tsc -p ./",
+        "test": "ts-mocha -p tsconfig.json 'src/test/**/*.test.ts'",
+        "lint": "eslint . --ext .ts,.tsx"
+    },
+    "devDependencies": {
+        "@types/mocha": "^10.0.10",
+        "@types/node": "^20.0.0",
+        "@types/vscode": "^1.32.0",
+        "@typescript-eslint/eslint-plugin": "^6.0.0",
+        "@typescript-eslint/parser": "^6.0.0",
+        "@vscode/vsce": "^3.7.1",
+        "cross-env": "^10.1.0",
+        "eslint": "^8.0.0",
+        "mocha": "^11.7.5",
+        "ts-loader": "^9.5.0",
+        "ts-mocha": "^11.1.0",
+        "typescript": "^5.0.0",
+        "webpack": "^5.90.0",
+        "webpack-cli": "^5.1.0"
+    },
+    "dependencies": {
+        "i18next": "^25.8.14",
+        "vitest": "^4.1.0"
+    }
+}

@@ -1,0 +1,243 @@
+/* 表格控件样式 - 单行/列拖拽手柄 + 条件显示的添加按钮 */
+.ProseMirror .tableWrapper {
+    position: relative;
+    overflow: visible;
+    width: 100%;
+    max-width: 100%;
+}
+
+/* 表格 */
+.ProseMirror table {
+    border-collapse: collapse;
+    /* 始终填满编辑器全宽。
+       Tiptap 的 columnResizing 插件会在 table 元素上设置 style="width: Xpx"；
+       我们通过 !important 强制覆盖，使表格保持 100% 宽度，
+       列按比例分布，而不是在右侧留下固定像素间隙。 */
+    width: 100% !important;
+    table-layout: fixed;
+    box-sizing: border-box;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+    border: 1px solid var(--vscode-editorGroup-border);
+    padding: 0px 10px;
+    text-align: center;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    /* 移除固定最小宽度 - 除非用户手动拖拽调整手柄，否则每列将获得等分的可用宽度 */
+    min-width: 0;
+}
+
+.ProseMirror table th {
+    font-weight: bold;
+    background: var(--vscode-sideBar-background);
+}
+
+/* 控件包裹层 - 零尺寸的绝对定位锚点 */
+.table-controls-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* === 行拖拽手柄（左侧边缘，单个） === */
+.table-row-handle {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    cursor: grab;
+    color: color-mix(in srgb, var(--vscode-editor-foreground) 35%, transparent);
+    background-color: color-mix(in srgb, var(--vscode-editor-foreground) 6%, transparent);
+    transition: color 0.15s, background-color 0.15s;
+    border-radius: 8px;
+    user-select: none;
+    pointer-events: auto;
+    margin-right: 2px;
+}
+
+.table-row-handle:hover {
+    color: var(--vscode-editor-foreground);
+}
+
+.table-row-handle:active,
+.table-row-handle.dragging {
+    cursor: grabbing;
+    color: var(--vscode-editor-foreground);
+}
+
+/* === 列拖拽手柄（顶部边缘，单个） === */
+.table-col-handle {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 12px;
+    cursor: grab;
+    color: color-mix(in srgb, var(--vscode-editor-foreground) 35%, transparent);
+    background-color: color-mix(in srgb, var(--vscode-editor-foreground) 6%, transparent);
+    transition: color 0.15s, background-color 0.15s;
+    border-radius: 8px;
+    user-select: none;
+    pointer-events: auto;
+    margin-bottom: 2px;
+}
+
+.table-col-handle svg {
+    transform: rotate(90deg);
+}
+
+.table-col-handle:hover {
+    color: var(--vscode-editor-foreground);
+}
+
+.table-col-handle:active,
+.table-col-handle.dragging {
+    cursor: grabbing;
+    color: var(--vscode-editor-foreground);
+}
+
+/* === 添加行按钮（底部边缘） === */
+.table-add-row-btn {
+    position: absolute;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: color-mix(in srgb, var(--vscode-editor-foreground) 35%, transparent);
+    background-color: color-mix(in srgb, var(--vscode-editor-foreground) 6%, transparent);
+    transition: color 0.15s, background-color 0.15s;
+    border-radius: 8px;
+    pointer-events: auto;
+    user-select: none;
+    margin-top: 2px;
+}
+
+.table-add-row-btn:hover {
+    color: var(--vscode-editor-foreground);
+}
+
+/* === 添加列按钮（右侧边缘） === */
+.table-add-col-btn {
+    position: absolute;
+    width: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: color-mix(in srgb, var(--vscode-editor-foreground) 35%, transparent);
+    background-color: color-mix(in srgb, var(--vscode-editor-foreground) 6%, transparent);
+    transition: color 0.15s, background-color 0.15s;
+    border-radius: 8px;
+    pointer-events: auto;
+    user-select: none;
+    margin-left: 2px;
+}
+
+.table-add-col-btn:hover {
+    color: var(--vscode-editor-foreground);
+}
+
+/* 单元格选中高亮 */
+.ProseMirror .selectedCell {
+    background-color: color-mix(in srgb, var(--vscode-focusBorder, #007acc) 15%, transparent) !important;
+}
+
+/* =====================================================
+   拖拽幻影（浮动的行/列副本）和指示线
+   ===================================================== */
+
+/* 半透明的被拖拽行/列浮动副本 */
+.table-drag-ghost {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.75;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18), 0 1px 4px rgba(0, 0, 0, 0.12);
+    transition: opacity 0.1s ease;
+}
+
+.table-drag-ghost table {
+    border-collapse: collapse;
+    background-color: var(--vscode-editor-background);
+}
+
+.table-drag-ghost th,
+.table-drag-ghost td {
+    border: 1px solid color-mix(in srgb, var(--vscode-editor-foreground) 15%, transparent);
+    padding: 6px 10px;
+    font-size: inherit;
+    color: var(--vscode-editor-foreground);
+    background-color: color-mix(in srgb, var(--vscode-focusBorder, #007acc) 8%, var(--vscode-editor-background));
+}
+
+/* 水平放置指示线（用于行重排序） */
+.table-drag-indicator-h {
+    position: fixed;
+    z-index: 9998;
+    height: 3px;
+    border-radius: 1.5px;
+    background-color: var(--vscode-focusBorder, #007acc);
+    pointer-events: none;
+    transition: top 0.12s ease, opacity 0.12s ease;
+    opacity: 1;
+}
+
+/* 垂直放置指示线（用于列重排序） */
+.table-drag-indicator-v {
+    position: fixed;
+    z-index: 9998;
+    width: 3px;
+    border-radius: 1.5px;
+    background-color: var(--vscode-focusBorder, #007acc);
+    pointer-events: none;
+    transition: left 0.12s ease, opacity 0.12s ease;
+    opacity: 1;
+}
+
+/* 拖拽时源行高亮 */
+.ProseMirror .tableWrapper table tr.table-drag-source-row>th,
+.ProseMirror .tableWrapper table tr.table-drag-source-row>td {
+    opacity: 0.35;
+    background-color: color-mix(in srgb, var(--vscode-focusBorder, #007acc) 6%, transparent);
+}
+
+/* 拖拽时源列单元格高亮 */
+.ProseMirror .tableWrapper table th.table-drag-source-col,
+.ProseMirror .tableWrapper table td.table-drag-source-col {
+    opacity: 0.35;
+    background-color: color-mix(in srgb, var(--vscode-focusBorder, #007acc) 6%, transparent);
+}
+
+/* ─── 表格列调整大小光标提示 ─── */
+/* TipTap 表格扩展为可调整列创建 .column-resize-handle */
+.ProseMirror .tableWrapper .column-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    bottom: 0;
+    width: 4px;
+    cursor: col-resize;
+    background: transparent;
+    z-index: 20;
+    pointer-events: auto;
+}
+
+.ProseMirror .tableWrapper .column-resize-handle:hover {
+    background: var(--vscode-focusBorder, #007acc);
+    opacity: 0.5;
+}
+
+/* 调整大小时也设置 col-resize 光标 */
+.ProseMirror.resize-cursor {
+    cursor: col-resize !important;
+}

@@ -1,0 +1,330 @@
+/* 无论 webview 是否获得焦点（例如打开右键菜单时），
+   都保持选区高亮颜色一致。否则浏览器会在焦点移到菜单时
+   渲染无样式的灰色背景。 */
+::selection {
+    background-color: var(--vscode-editor-selectionBackground, rgba(173, 214, 255, 0.4));
+    color: inherit;
+}
+
+html {
+    height: 100%;
+    overflow: hidden;
+    width: 100%;
+}
+
+body {
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    /* 防止内容被 fixed toolbar 遮挡，高度由 JS 动态写入 --toolbar-height */
+    padding-top: var(--toolbar-height, 40px);
+    box-sizing: border-box;
+    background-color: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+}
+
+#root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+#editor {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: visible;
+    box-sizing: border-box;
+}
+
+.ProseMirror {
+    outline: none;
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+    text-rendering: geometricPrecision;
+    color: var(--vscode-editor-foreground);
+    min-height: 60vh;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    /* 使光标颜色与 VS Code 编辑器一致 */
+    caret-color: var(--vscode-editorCursor-foreground, #aeafad);
+}
+
+/*
+ * 当链接插入面板打开时，焦点会移到面板内的输入框。
+ * 隐藏编辑器原生光标，使只有面板内的输入框显示闪烁光标。
+ */
+body.link-widget-open .ProseMirror {
+    caret-color: transparent;
+}
+
+.ProseMirror p.empty-paragraph-with-placeholder::before {
+    content: attr(data-placeholder);
+    color: var(--vscode-editorPlaceholder-foreground, rgba(120, 120, 120, 0.5));
+    font-style: italic;
+    position: absolute;
+    /* 内容加载完成前隐藏，防止初始加载时闪烁 */
+    display: none;
+}
+
+body[data-content-ready] .ProseMirror p.empty-paragraph-with-placeholder::before {
+    display: block;
+}
+
+/* 粗体 */
+.ProseMirror strong {
+    color: #E06C75;
+    font-weight: 800;
+}
+
+/* 斜体 */
+.ProseMirror em {
+    color: #E5C07B;
+}
+
+/* 删除线 */
+.ProseMirror s {
+    color: #56B6C2;
+    text-decoration-color: inherit;
+}
+
+/* 引用块 */
+.ProseMirror blockquote {
+    :first-child {
+        margin-top: 0;
+    }
+    background-color: var(--vscode-sideBar-background);
+    border-left: 6px solid var(--vscode-editorGroup-border);
+    border-top: 1px solid var(--vscode-editorGroup-border);
+    border-right: 1px solid var(--vscode-editorGroup-border);
+    border-bottom: 1px solid var(--vscode-editorGroup-border);
+    border-radius: 4px;
+    /* 四周内边距与代码块保持一致（code.css 中 pre { padding: 1em }） */
+    padding: 1em;
+    padding-left: 12px;
+    margin-left: 0;
+}
+
+/* 水平分割线 */
+.ProseMirror hr {
+    /* height: 1px; */
+    border: 1px solid var(--vscode-editorGroup-border);
+    opacity: 1;
+}
+
+/* HR 选中状态 */
+.ProseMirror hr.ProseMirror-selectednode {
+    outline: 1px solid var(--vscode-focusBorder, #007fd4);
+    outline-offset: 1px;
+    border-radius: 1px;
+}
+
+/*
+ * 三种列表类型（ul/ol/任务列表）均使用相同的绝对定位标记机制，
+ * 使无序列表项目符号 •、有序列表计数器和任务列表复选框都准确位于
+ * 各自 li 的 top: 0.25em —— 保证三种标记类型垂直对齐。
+ *
+ * 所有三种列表类型：
+ *   padding-left: 2em（装订区宽度 = 标记所占空间）
+ *   li: list-style:none; position:relative
+ *   标记: position:absolute; left:-2em; top:0.25em; width:1em; text-align:right; line-height:1
+ *
+ * li 元素和 ul/ol 包裹层无额外外边距 - 列表内部的间距
+ * 完全由 line-height 控制，与代码块内行的视觉节奏一致。
+ * 与周围块之间的外间距由相邻 p 的 margin collapsing 产生
+ * （ul 的 margin 为 0），因此 p↔ul 间距 = p 的 margin-bottom = inlineS（不会翻倍）。
+ * li > p 也必须重置为 0，因为 tiptap 会将列表项内容包裹在 <p> 中。
+ */
+.ProseMirror ul,
+.ProseMirror ol {
+    padding-left: 2em;
+    margin: 0;
+}
+.ProseMirror li {
+    margin: 0;
+}
+.ProseMirror li > p {
+    margin: 0;
+}
+.ProseMirror li > ul,
+.ProseMirror li > ol {
+    margin: 0;
+}
+
+/* ── 无序列表 ── */
+.ProseMirror ul:not([data-type="taskList"])>li {
+    list-style: none;
+    position: relative;
+}
+
+.ProseMirror ul:not([data-type="taskList"])>li::before {
+    content: "•";
+    font-family: inherit;
+    position: absolute;
+    left: -2em;
+    top: calc((var(--pm-line-height, 1.5) - 1) / 2 * 1em);
+    width: 1em;
+    text-align: right;
+    line-height: 1;
+}
+
+/* 嵌套无序列表层级 */
+.ProseMirror ul:not([data-type="taskList"])>li>ul:not([data-type="taskList"])>li::before {
+    content: "○";
+    width: 1em;
+}
+
+.ProseMirror ul:not([data-type="taskList"])>li>ul:not([data-type="taskList"])>li>ul:not([data-type="taskList"])>li::before {
+    content: "■";
+    font-size: 0.6em;
+    /* top 需要以父级 li 的 em 为单位（在 0.6em 缩放前），
+       因此除以 0.6 转换回来：top_parent = half-leading / 0.6 */
+    top: calc((var(--pm-line-height, 1.5) - 1) / 2 * 1em / 0.6);
+    width: 1em;
+}
+
+/* ── 有序列表 ──
+   用自定义 ::before + counter() 替换浏览器默认 ::marker，
+   使数字与无序列表项目符号和任务列表复选框位于相同的 top 位置，
+   确保三种标记类型垂直对齐。 */
+.ProseMirror ol {
+    counter-reset: ol-item;
+}
+
+.ProseMirror ol>li {
+    list-style: none;
+    position: relative;
+    counter-increment: ol-item;
+}
+
+.ProseMirror ol>li::before {
+    content: counter(ol-item) ".";
+    position: absolute;
+    left: -2em;
+    top: calc((var(--pm-line-height, 1.5) - 1) / 2 * 1em);
+    width: 1.6em;
+    text-align: right;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 任务列表 */
+.ProseMirror ul[data-type="taskList"] {
+    list-style: none !important;
+    padding-left: 2em !important;
+    margin-left: 0 !important;
+}
+
+/* 确保任务项不显示原生项目符号 */
+.ProseMirror li[data-type="taskItem"],
+.ProseMirror li[data-checked],
+.ProseMirror li[data-checked="true"],
+.ProseMirror li[data-checked="false"] {
+    list-style: none !important;
+}
+
+/*
+ * 精确对齐无序列表 ::before 项目符号的结构：
+ *   ul：padding-left 2em，::before 绝对定位 left:-2em width:1em text-align:right top:0.25em
+ *
+ * 任务列表：
+ *   - li 为 position:relative（与 ul>li 相同）
+ *   - label 为 position:absolute，left:-2em，width:2em，右对齐带 padding-right:1em
+ *     → 复选框右边缘距文本左边缘 1em（与项目符号右边缘间距相同）
+ *   - label top 与 ::before top 相同
+ *   - div 为普通块级，从 li 内容框左侧（0）开始，占满宽度
+ *     无需 flex — label 脱离文档流，div 自然填满
+ */
+.ProseMirror li[data-type="taskItem"],
+.ProseMirror li[data-checked] {
+    display: block !important;
+    position: relative !important;
+}
+
+.ProseMirror li[data-type="taskItem"]>label,
+.ProseMirror li[data-checked]>label {
+    position: absolute !important;
+    left: -2em !important;
+    width: 2em !important;
+    top: calc((var(--pm-line-height, 1.5) - 1) / 2 * 1em) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    /* padding-right = 复选框右边缘与文本之间的间距，与项目符号间距相同 = 1em */
+    padding-right: 1em !important;
+    box-sizing: border-box !important;
+    line-height: 1 !important;
+    cursor: default !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+.ProseMirror li[data-type="taskItem"]>label input[type="checkbox"],
+.ProseMirror li[data-checked]>label input[type="checkbox"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    flex-shrink: 0;
+    cursor: pointer !important;
+    border-radius: 3px !important;
+    transition: box-shadow 0.15s ease !important;
+}
+
+/* 悬停高亮：柔和蓝色辉光 - 仅模糊扩散，无硬边框 */
+.ProseMirror li[data-type="taskItem"]>label:hover input[type="checkbox"],
+.ProseMirror li[data-checked]>label:hover input[type="checkbox"] {
+    box-shadow: 0 0 4px 1px rgba(0, 120, 212, 0.9), 0 0 10px 4px rgba(0, 120, 212, 0.4) !important;
+    outline: none !important;
+}
+
+/* 移除 label 层级的背景色，避免出现宽色条 */
+.ProseMirror li[data-type="taskItem"]>label:hover,
+.ProseMirror li[data-checked]>label:hover {
+    background-color: transparent !important;
+    border-radius: 0 !important;
+}
+
+.ProseMirror li[data-type="taskItem"]>div,
+.ProseMirror li[data-checked]>div {
+    margin: 0 !important;
+}
+
+.ProseMirror li[data-type="taskItem"]>div>p,
+.ProseMirror li[data-checked]>div>p {
+    margin: 0 !important;
+}
+
+/* 已勾选的任务项：删除线 + 与 .ProseMirror s 相同的颜色 */
+.ProseMirror li[data-checked="true"]>div,
+.ProseMirror li[data-checked="true"]>div>p {
+    text-decoration: line-through !important;
+    text-decoration-color: inherit !important;
+    color: #56B6C2 !important;
+}
+
+/* ------------------------------------------------------------ */
+/* 内联编辑面板（链接/图片/公式双击共用）                          */
+/* ------------------------------------------------------------ */
+.link-inline-edit,
+.image-inline-edit,
+.math-inline-edit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+    padding: 6px 10px;
+    border: 1px solid var(--vscode-editorGroup-border);
+    border-radius: 6px;
+    background: var(--vscode-editor-background);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    user-select: none;
+    /* 继承编辑器正文字体，使面板文本与编辑器一致 */
+    font-family: var(--vscode-editor-fontFamily, inherit);
+}

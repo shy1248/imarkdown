@@ -1,0 +1,41 @@
+.node-action-buttons {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding-right: 6px;
+}
+
+.node-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  color: color-mix(in srgb, var(--vscode-editor-foreground) 35%, transparent);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.12s, color 0.12s;
+
+  &:hover {
+    background: color-mix(in srgb, var(--vscode-editor-foreground) 10%, transparent);
+    color: color-mix(in srgb, var(--vscode-editor-foreground) 70%, transparent);
+  }
+}
+
+.node-action-btn.drag-btn {
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+body[data-scrolling]:not([data-dragging]) .drag-handle {
+  visibility: hidden !important;
+}

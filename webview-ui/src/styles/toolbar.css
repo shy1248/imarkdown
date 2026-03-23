@@ -1,0 +1,100 @@
+/* 浮动工具栏 */
+#toolbar-wrapper {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1100;
+  display: flex;
+  justify-content: center;
+  background-color: var(--vscode-editor-background);
+  border-bottom: 1px solid var(--vscode-editorGroup-border);
+  padding: 2px 0;
+  /* 宽度由 JS 动态设置以匹配 #editor */
+  width: var(--toolbar-width, 100%);
+  box-sizing: border-box;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  width: 100%;
+}
+
+.toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* 分组之间的分隔线 */
+.toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--vscode-editorGroup-border);
+  margin: 0 3px;
+  flex-shrink: 0;
+}
+
+/* 单个工具栏按钮 */
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-editor-foreground);
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  position: relative;
+  transition: background 0.1s;
+  opacity: 0.75;
+}
+
+.toolbar-btn:hover {
+  background: color-mix(in srgb, var(--vscode-editor-foreground) 10%, transparent);
+  opacity: 1;
+}
+
+.toolbar-btn.is-active {
+  background: color-mix(in srgb, var(--vscode-editor-foreground) 14%, transparent);
+  opacity: 1;
+}
+
+.toolbar-btn svg {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+/* 提示文字 */
+.toolbar-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: var(--vscode-editorHoverWidget-background, #1e1e1e);
+  color: var(--vscode-editorHoverWidget-foreground, #cccccc);
+  border: 1px solid var(--vscode-editorHoverWidget-border, #454545);
+  font-size: 11px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  z-index: 1200;
+}
+
+.toolbar-btn:hover::after {
+  opacity: 1;
+}

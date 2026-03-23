@@ -1,0 +1,320 @@
+/* 链接 - 在编辑器中链接是可编辑文本，因此始终使用文本光标。
+   Ctrl/Cmd+Click 打开链接（由 JS 处理）；悬停不会改变光标，
+   避免用户误以为单击就能导航。 */
+.ProseMirror a {
+    cursor: text;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+/* 仅在按住 Ctrl 或 Cmd 时显示手型光标，让用户知道该模式下链接可点击。
+   .ctrl-hover 类由链接点击处理扩展通过 document 级别的
+   keydown/keyup 监听器添加/移除。 */
+.ctrl-hover .ProseMirror a {
+    cursor: pointer;
+}
+
+/* 当窗口重新获得焦点时（例如在浏览器中打开链接后），
+   浏览器可能不会重新评估 :hover，导致残留手型光标。
+   我们短暂地对所有元素应用 cursor:default，直到首次 mousemove 触发
+   光标重新计算。 */
+body.reset-cursor,
+body.reset-cursor * {
+    cursor: default !important;
+}
+
+/* 内联链接插入块样式 */
+.link-insert-block {
+    margin: 8px 0;
+    border: 1px solid color-mix(in srgb, var(--vscode-editorWidget-border) 35%, transparent);
+    border-radius: 4px;
+    background-color: var(--vscode-editor-background);
+    padding: 16px 20px;
+    user-select: none;
+    position: relative;
+    font-family: var(--vscode-editor-fontFamily, inherit);
+}
+
+.link-insert-body {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.link-insert-icon {
+    color: var(--vscode-descriptionForeground, rgba(128, 128, 128, 0.7));
+    opacity: 0.5;
+    flex-shrink: 0;
+}
+
+.link-insert-form {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.link-insert-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 120px;
+}
+
+.link-insert-field label {
+    font-size: 13px;
+    color: var(--vscode-editor-foreground);
+    opacity: 0.8;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.link-insert-input {
+    flex: 1 1 80px;
+    min-width: 80px;
+    max-width: 100%;
+    padding: 4px 8px;
+    border: 1px solid var(--vscode-input-border, var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.4)));
+    border-radius: 4px;
+    background-color: var(--vscode-sideBar-background, var(--vscode-input-background, var(--vscode-editor-background)));
+    color: var(--vscode-input-foreground, var(--vscode-editor-foreground));
+    font-size: 13px;
+    font-family: var(--vscode-editor-fontFamily, inherit);
+    outline: none;
+    box-sizing: border-box;
+    /* 此组件位于 .ProseMirror 内部，后者设置了 caret-color:transparent
+       （通过 body.link-widget-open）。该值会被所有后代继承，
+       包括此 <input>。必须显式重置以确保输入框聚焦时
+       文本光标可见。 */
+    caret-color: var(--vscode-editorCursor-foreground, #aeafad);
+}
+
+.link-insert-input-url {
+    flex: 2 1 160px;
+}
+
+.link-insert-input::placeholder {
+    color: var(--vscode-input-placeholderForeground, rgba(128, 128, 128, 0.5));
+}
+
+.link-insert-input:focus {
+    border-color: var(--vscode-focusBorder, #007acc);
+}
+
+.link-insert-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.link-insert-btn {
+    padding: 4px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: var(--vscode-editor-fontFamily, inherit);
+    cursor: pointer;
+    border: 1px solid transparent;
+    outline: none;
+    white-space: nowrap;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.link-insert-btn-cancel {
+    background-color: transparent;
+    color: var(--vscode-editor-foreground);
+    border-color: var(--vscode-input-border, var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.4)));
+}
+
+.link-insert-btn-cancel:hover {
+    background-color: color-mix(in srgb, var(--vscode-editor-foreground) 8%, transparent);
+}
+
+.link-insert-btn-confirm {
+    background-color: var(--vscode-button-background, #007acc);
+    color: var(--vscode-button-foreground, #fff);
+    border-color: var(--vscode-button-background, #007acc);
+}
+
+.link-insert-btn-confirm:hover {
+    background-color: var(--vscode-button-hoverBackground, #005a9e);
+}
+
+.inline-edit-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 120px;
+}
+
+.inline-edit-field label {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 32px;
+}
+
+.inline-edit-input {
+    flex: 1;
+    min-width: 60px;
+    padding: 3px 6px;
+    border: 1px solid color-mix(in srgb, var(--vscode-editorWidget-border, var(--vscode-editor-foreground)) 40%, transparent);
+    border-radius: 4px;
+    background: var(--vscode-sideBar-background, var(--vscode-input-background, var(--vscode-editor-background)));
+    color: var(--vscode-input-foreground, var(--vscode-editor-foreground));
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    outline: none;
+    box-sizing: border-box;
+    caret-color: var(--vscode-editorCursor-foreground, #aeafad);
+}
+
+.inline-edit-input:focus {
+    border-color: var(--vscode-editorGroup-border);
+}
+
+.inline-edit-textarea {
+    flex: 1 1 100%;
+    min-width: 100%;
+    min-height: 40px;
+    padding: 4px 6px;
+    border: 1px solid color-mix(in srgb, var(--vscode-editorWidget-border, var(--vscode-editor-foreground)) 40%, transparent);
+    border-radius: 4px;
+    background: var(--vscode-sideBar-background, var(--vscode-input-background, var(--vscode-editor-background)));
+    color: var(--vscode-input-foreground, var(--vscode-editor-foreground));
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    outline: none;
+    box-sizing: border-box;
+    resize: vertical;
+    caret-color: var(--vscode-editorCursor-foreground, #aeafad);
+}
+
+.inline-edit-textarea:focus {
+    border-color: var(--vscode-editorGroup-border);
+}
+
+.inline-edit-buttons {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.inline-edit-btn {
+    padding: 2px 8px;
+    border: 1px solid color-mix(in srgb, var(--vscode-editorWidget-border, var(--vscode-editor-foreground)) 40%, transparent);
+    border-radius: 4px;
+    background: var(--vscode-button-secondaryBackground, var(--vscode-editor-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-editor-foreground));
+    font-size: 12px;
+    cursor: pointer;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.inline-edit-btn:hover {
+    background: var(--vscode-button-secondaryHoverBackground, color-mix(in srgb, var(--vscode-editor-foreground) 10%, var(--vscode-editor-background)));
+}
+
+.inline-edit-btn-apply {
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #ffffff);
+    border-color: transparent;
+}
+
+.inline-edit-btn-apply:hover {
+    background: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.inline-edit-btn-unlink {
+    margin-right: auto;
+    font-size: 11px;
+}
+
+/* 窄视口：垂直堆叠布局 */
+@media (max-width: 480px) {
+    .link-insert-body {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .link-insert-icon {
+        display: none;
+    }
+
+    .link-insert-form {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .link-insert-field {
+        min-width: 0;
+    }
+
+    .link-insert-input,
+    .link-insert-input-url {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+
+    .link-insert-actions {
+        justify-content: center;
+    }
+}
+
+/* ------------------------------------------------------------ */
+/* 路径自动补全下拉菜单                                          */
+/* ------------------------------------------------------------ */
+.path-completion-dropdown {
+    position: absolute;
+    z-index: 9999;
+    min-width: 220px;
+    max-width: 420px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--vscode-editorSuggestWidget-background, var(--vscode-editor-background));
+    border: 1px solid var(--vscode-editorSuggestWidget-border, var(--vscode-editorWidget-border, rgba(128,128,128,0.4)));
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    font-size: 13px;
+    font-family: var(--vscode-editor-fontFamily, monospace);
+    line-height: 1.4;
+}
+
+.path-completion-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--vscode-editorSuggestWidget-foreground, var(--vscode-editor-foreground));
+}
+
+.path-completion-item:hover,
+.path-completion-item.active {
+    background: var(--vscode-editorSuggestWidget-selectedBackground, var(--vscode-list-activeSelectionBackground, #094771));
+    color: var(--vscode-editorSuggestWidget-selectedForeground, var(--vscode-list-activeSelectionForeground, #fff));
+}
+
+.path-completion-icon {
+    flex-shrink: 0;
+    opacity: 0.7;
+    font-size: 12px;
+}
+
+.path-completion-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

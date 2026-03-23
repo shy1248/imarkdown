@@ -1,0 +1,86 @@
+/* 公式编辑浮层 —— 现使用 link-insert.css 中的共用 .math-inline-edit 类 */
+/* 旧浮层样式已移除；内联编辑面板在文档流中 */
+
+/* 公式容器 */
+.tiptap-mathematics-container {
+    display: inline;
+}
+
+.tiptap-mathematics-block-container {
+    display: block;
+}
+
+/* 行内公式 */
+.ProseMirror .tiptap-mathematics-render {
+    cursor: default;
+    /* 水平方向微量内边距加对称外边距，为光标留出中性间距 */
+    padding: 0 2px;
+    margin: 0 1px;
+    /* 保持行内显示并对齐基线，使光标度量与周围文本一致 */
+    display: inline-flex;
+    align-items: center;
+    vertical-align: baseline;
+    line-height: inherit;
+    box-sizing: border-box;
+}
+
+.ProseMirror .tiptap-mathematics-render--editable {
+    cursor: text;
+}
+
+/* 块级公式 */
+.ProseMirror div[data-type="block-math"].tiptap-mathematics-render {
+    display: block;
+    text-align: center;
+    margin: 0;
+    padding: 8px 12px;
+    cursor: default;
+    /* 预留空间防止悬停/聚焦时高度跳变 */
+    min-height: 2em;
+    box-sizing: border-box;
+}
+
+/* 公式错误回退 */
+.ProseMirror .inline-math-error,
+.ProseMirror .block-math-error {
+    color: var(--vscode-errorForeground, #f44747);
+    font-family: var(--vscode-editor-fontFamily, monospace);
+    font-size: 0.9em;
+}
+
+/* 公式节点选中状态 */
+.ProseMirror .tiptap-mathematics-render.math-selected,
+.ProseMirror .tiptap-mathematics-render.ProseMirror-selectednode {
+    outline: 1px solid var(--vscode-focusBorder, #007fd4);
+    border-radius: 3px;
+}
+
+/* 块级公式选中状态 */
+.ProseMirror div.tiptap-mathematics-block-container.math-node-selected .tiptap-mathematics-render,
+.ProseMirror div[data-type="block-math"].tiptap-mathematics-render.ProseMirror-selectednode {
+    outline: 1px solid var(--vscode-focusBorder, #007fd4);
+    border-radius: 4px;
+}
+
+/* ── 编辑面板间距 ──────────────────────────────────────────────────────
+ * 当内联编辑面板打开时，它作为直接兄弟节点追加在
+ * .tiptap-mathematics-block-container 内的块级公式包裹元素之后。
+ *
+ * 渲染元素本身 margin 为 0（外部间距由容器控制，
+ * 通过 node-spacing-style 设置）。我们仅在编辑面板可见时
+ * 给渲染元素添加一个小的底部间距，使公式与输入框在视觉上分离。
+ *
+ * 使用 :has() 选择器确保这些覆盖仅在面板存在时生效。
+ * ──────────────────────────────────────────────────────────────────── */
+.ProseMirror div.tiptap-mathematics-block-container
+    .tiptap-mathematics-render:has(+ .math-inline-edit) {
+    margin-bottom: 4px;
+}
+.ProseMirror div.tiptap-mathematics-block-container
+    .tiptap-mathematics-render + .math-inline-edit {
+    margin-top: 0;
+}
+
+.math-inline-edit {
+    margin: 8px 0 !important;
+}

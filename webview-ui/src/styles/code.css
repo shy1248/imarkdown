@@ -1,0 +1,164 @@
+/* 行内代码 */
+.ProseMirror :not(pre)>code {
+    background-color: color-mix(in srgb, var(--vscode-editor-foreground) 12%, transparent) !important;
+    border: 1px solid color-mix(in srgb, var(--vscode-editorGroup-border) 20%, transparent) !important;
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    color: #C678DD;
+}
+
+/* 代码块 */
+.ProseMirror pre {
+    background-color: var(--vscode-sideBar-background);
+    border: 1px solid var(--vscode-editorGroup-border);
+    border-radius: 4px;
+    padding: 1em;
+    overflow: auto;
+    position: relative;
+}
+
+/* ── 代码块行号 ─────────────────────────────────────────────── */
+/*
+ * 行号槽布局（所有值以等宽字体的 `ch` 为单位）：
+ *
+ *   ┌──border──┬─paddingLeft(0.5ch)─┬─number─┬─paddingRight(2ch)─┬─代码文本─
+ *                                               ↑ 右对齐
+ *
+ *   gutterCh（= <pre> 的 padding-left）= 位数 + 3
+ *
+ * span.code-ln 小部件具有：
+ *   width       = gutterCh   （内联样式，取决于位数）
+ *   margin-left = -gutterCh  （内联样式，抵消 width → 净推进为零）
+ *   padding-left  = 0.5ch    （内联样式，与左边框的间距）
+ *   padding-right = 2ch      （内联样式，行号与代码之间的间距）
+ *   box-sizing: border-box   ← 关键：width 包含 padding，
+ *                              因此净推进 = width + marginLeft = 始终为 0。
+ *   text-align: right        （在此 CSS 中设置）
+ *
+ * 由于净推进为 0，每一行代码——首行和所有软换行的延续行——
+ * 都从相同的 x 位置（距左边框 gutterCh）开始，实现完美对齐。
+ */
+
+.code-ln {
+    display: inline-block;
+    /* width、margin-left、padding-left、padding-right 通过内联样式设置 */
+    text-align: right;
+    color: var(--vscode-editorLineNumber-foreground, rgba(150, 150, 150, 0.5));
+    font-size: inherit;
+    line-height: inherit;
+    font-family: inherit;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    vertical-align: top;
+    /* border-box：width 包含 padding，因此净推进（width + marginLeft）
+       无论 paddingLeft/paddingRight 值如何都始终为零。 */
+    box-sizing: border-box;
+}
+
+.ProseMirror pre code {
+    background: transparent !important;
+    color: inherit !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+/* 语言标签（右上角徽标） */
+.ProseMirror pre[data-language]::before {
+    content: attr(data-language);
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background-color: var(--vscode-editor-background);
+    color: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+    border: 1px solid color-mix(in srgb, var(--vscode-editorWidget-border) 35%, transparent);
+    text-transform: none;
+    cursor: pointer;
+    user-select: none;
+}
+.code-lang-dropdown {
+    position: fixed;
+    z-index: 9999;
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-dropdown-border, var(--vscode-editorWidget-border, #555));
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    width: 180px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* 使用编辑器 UI 字体（与 VS Code 面板一致） */
+    font-family: var(--vscode-font-family, var(--vscode-editor-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif));
+    font-size: var(--vscode-font-size, 13px);
+}
+
+.code-lang-search {
+    margin: 6px;
+    padding: 4px 8px;
+    font-size: inherit;
+    font-family: inherit;
+    border: 1px solid var(--vscode-input-border, #555);
+    border-radius: 4px;
+    background: var(--vscode-input-background, #1e1e1e);
+    color: var(--vscode-input-foreground, #d4d4d4);
+    outline: none;
+}
+
+.code-lang-search:focus {
+    border-color: var(--vscode-editorGroup-border);
+}
+
+.code-lang-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.code-lang-list::-webkit-scrollbar {
+    width: 10px !important;
+}
+
+.code-lang-list::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4)) !important;
+}
+
+.code-lang-item {
+    padding: 5px 12px;
+    font-size: inherit;
+    font-family: inherit;
+    color: var(--vscode-dropdown-foreground, var(--vscode-editor-foreground));
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.code-lang-item:hover {
+    background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.07));
+}
+
+.code-lang-item--active {
+    color: var(--vscode-list-activeSelectionForeground, #fff);
+    background: var(--vscode-list-hoverBackground);
+    font-weight: 600;
+}
+
+.code-lang-item--empty {
+    color: var(--vscode-descriptionForeground, #888);
+    cursor: default;
+    font-style: italic;
+}
+
+/* 仅当指针直接悬停在语言标签上时才高亮
+   （.badge-hovered 类由 codeBlockLanguage.ts 中的 mousemove 事件处理器切换，
+   而非通过 pre:hover，后者会在光标位于代码块任意位置时触发）。 */
+.ProseMirror pre.badge-hovered::before {
+    background-color: color-mix(in srgb, var(--vscode-editorGroup-border) 20%, var(--vscode-editor-background));
+    border-color: var(--vscode-editorGroup-border);
+    color: var(--vscode-foreground);
+}

@@ -1,0 +1,16 @@
+.vscode/**
+.vscode-test/**
+src/**
+webview-ui/**
+node_modules/**
+.gitignore
+.cursor
+.vscodeignore
+*.vsix
+*.map
+pnpm-lock.yaml
+test.md
+.tool-versions
+webpack.config.js
+tsconfig.json
+CHANGELOG.md

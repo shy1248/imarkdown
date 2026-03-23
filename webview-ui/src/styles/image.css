@@ -1,0 +1,150 @@
+/* 图片 */
+.ProseMirror img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0;
+    border-radius: 4px;
+}
+
+/* 图片容器（figure） */
+/* 外边距由 node-spacing-style 动态控制，请勿在此设置 */
+.image-resize-container {
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+/* 取消 figure 内全局 `.ProseMirror img { margin: 8px 0 }` 规则的影响
+   — 容器本身已提供外部 8px 间距。
+   如不取消，img 的 margin-bottom 会被 inline-block 包裹层的高度吸收，
+   导致编辑面板距图片 8+4 = 12px 而非预期的 4px。 */
+.image-resize-container img {
+    margin: 0;
+}
+
+/* 图片标题（figcaption）— 仅在设置了 title 属性时显示 */
+.image-caption {
+    display: block;
+    text-align: center;
+    font-size: 0.85em;
+    color: var(--vscode-descriptionForeground, rgba(128, 128, 128, 0.85));
+    padding: 4px 8px 2px;
+    line-height: 1.4;
+    word-break: break-word;
+    user-select: text;
+}
+
+/* 内联编辑面板 — 在图片下方的文档流中，
+   复用 link.css 中的共用 .math-inline-edit / .inline-edit-* 类 */
+.image-inline-edit {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--vscode-editor-fontFamily, inherit);
+    font-size: 13px;
+    box-sizing: border-box;
+    /* margin: 4px 0 继承自 link.css 中的共用选择器 */
+}
+
+.image-inline-edit .inline-edit-field {
+    flex: 1 1 80px;
+    min-width: 0;
+}
+
+.image-inline-edit .inline-edit-field label {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.image-inline-edit .inline-edit-input {
+    min-width: 0;
+    width: 100%;
+    font-family: var(--vscode-editor-fontFamily, inherit);
+}
+
+.image-inline-edit .inline-edit-buttons {
+    flex-shrink: 0;
+    margin-left: 0;
+}
+
+/* 图片上传块样式 */
+
+.image-upload-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 32px 24px;
+    margin: 8px 0;
+    border: 1px solid color-mix(in srgb, var(--vscode-editorWidget-border) 35%, transparent);
+    border-radius: 4px;
+    background-color: var(--vscode-editor-background);
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+    user-select: none;
+    position: relative;
+}
+
+.image-upload-block:hover {
+    border-color: var(--vscode-focusBorder, #007acc);
+    background-color: color-mix(in srgb, var(--vscode-focusBorder, #007acc) 6%, transparent);
+}
+
+.image-upload-block.drag-over {
+    border-color: var(--vscode-focusBorder, #007acc);
+    background-color: color-mix(in srgb, var(--vscode-focusBorder, #007acc) 10%, transparent);
+}
+
+.image-upload-icon {
+    color: var(--vscode-descriptionForeground, rgba(128, 128, 128, 0.7));
+    opacity: 0.6;
+    transition: opacity 0.2s, color 0.2s;
+}
+
+.image-upload-block:hover .image-upload-icon {
+    opacity: 0.9;
+    color: var(--vscode-focusBorder, #007acc);
+}
+
+.image-upload-hint {
+    font-size: 14px;
+    color: var(--vscode-editor-foreground);
+    opacity: 0.8;
+}
+
+.image-upload-sub-hint {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground, rgba(128, 128, 128, 0.7));
+}
+
+/* 隐藏的文件输入框 - 使用绝对定位而非 display:none
+   以确保 click() 在所有浏览器中都能可靠工作 */
+.image-upload-file-input {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* 图片缩放手柄 — 不可见，仅作光标提示 */
+.image-resize-handle {
+    position: absolute;
+    z-index: 5;
+    background: transparent;
+}
+
+/* 右下角缩放手柄 */
+.image-resize-handle-corner {
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    cursor: nwse-resize;
+    user-select: none;
+}

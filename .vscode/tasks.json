@@ -1,0 +1,49 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "webpack",
+			"problemMatcher": "$tsc",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "silent"
+			},
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"type": "npm",
+			"script": "build:webview",
+			"problemMatcher": [],
+			"isBackground": false,
+			"presentation": {
+				"reveal": "silent"
+			}
+		},
+		{
+			"label": "build:extension",
+			"dependsOn": [
+				"npm: build:webview",
+				"npm: webpack"
+			],
+			"problemMatcher": [],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"type": "npm",
+			"script": "webpack-dev",
+			"problemMatcher": "$tsc-watch",
+			"isBackground": true,
+			"presentation": {
+				"reveal": "silent"
+			},
+			"group": "build"
+		}
+	]
+}
