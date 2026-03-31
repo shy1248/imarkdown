@@ -11,13 +11,6 @@ interface ToolbarProps {
 
 // 判断当前编辑器状态下哪些命令处于"激活"状态。
 // 仅返回最具体的一组激活命令，避免多个按钮同时高亮造成混乱。
-//
-// 优先级层级（越高越优先）：
-//   1. link / inlineMath  — 光标在链接或行内公式内：仅该按钮高亮
-//   2. 行内标记            — bold / italic / strike / code（行内）：显示，段落按钮抑制
-//   3. 块级节点类型         — codeBlock / quote / h1-h3 / blockMath / image：显示，段落+列表按钮抑制
-//   4. 列表类型            — ul / ol / task：显示，段落按钮抑制
-//   5. 段落               — 兜底，仅当其他任何元素均未激活时
 function getActiveCommands(editor: Editor): Set<string> {
     const active = new Set<string>();
     try {
@@ -38,42 +31,40 @@ function getActiveCommands(editor: Editor): Set<string> {
         const hasBlockMath  = editor.isActive('blockMath');
         const hasImage      = editor.isActive('image') || editor.isActive('resizableImage');
 
-        // 第 1 层：链接或行内公式 — 抑制其他所有
+        // 第 1 层：链接、行内代码或行内公式 — 抑制其他所有
         if (hasLink) { active.add('link'); return active; }
+        if (hasCodeInl) { active.add('code'); return active; }
         if (hasInlineMath) { active.add('inlineMath'); return active; }
 
         // 第 2 层：行内标记（可组合，如 bold+italic）
         if (hasBold)    active.add('bold');
         if (hasItalic)  active.add('italic');
         if (hasStrike)  active.add('strike');
-        if (hasCodeInl) active.add('code');
+        const hasInline = hasBold || hasItalic || hasStrike;
+        if (hasInline) { return active; }
 
-        // 第 3 层：块级节点类型（codeBlock / blockquote / heading / blockMath / image）
-        // 抑制段落和列表按钮。
-        if (hasCodeBlk)   active.add('codeblock');
-        if (hasQuote)     active.add('quote');
+        // 第 3 层：列表容器（ul / ol / task）
+        if (hasUl)   active.add('ul');
+        if (hasOl)   active.add('ol');
+        if (hasTask) active.add('task');
+        const hasList   = hasUl || hasOl || hasTask;
+        if (hasList) { return active; }
+
+        // 第 4 层：除引用块以外块节点类型（codeBlock / heading / blockMath / image）
         if (hasH1)        active.add('h1');
         if (hasH2)        active.add('h2');
         if (hasH3)        active.add('h3');
-        if (hasBlockMath) active.add('math');
         if (hasImage)     active.add('image');
+        if (hasCodeBlk)   active.add('codeblock');
+        if (hasBlockMath) active.add('math');
+        const hasBlock = hasH1 || hasH2 || hasH3 || hasImage || hasCodeBlk || hasBlockMath;
+        if (hasBlock) { return active; }
 
-        const hasBlock = hasCodeBlk || hasQuote || hasH1 || hasH2 || hasH3 || hasBlockMath || hasImage;
+        // 第 5 层：引用块，可嵌套
+        if (hasQuote ) { active.add('quote'); return active; };
 
-        // 第 4 层：列表容器 — 仅当不在更高优先级的块级节点内时
-        if (!hasBlock) {
-            if (hasUl)   active.add('ul');
-            if (hasOl)   active.add('ol');
-            if (hasTask) active.add('task');
-        }
-
-        const hasList   = hasUl || hasOl || hasTask;
-        const hasInline = hasBold || hasItalic || hasStrike || hasCodeInl;
-
-        // 第 5 层：段落 — 仅当其他结构元素均未激活时
-        if (!hasBlock && !hasList && !hasInline) {
-            if (editor.isActive('paragraph')) active.add('paragraph');
-        }
+        // 第 6 层：普通段落
+        if (editor.isActive('paragraph')) { active.add('paragraph'); return active; };
     } catch { /* ignore */ }
     return active;
 }
