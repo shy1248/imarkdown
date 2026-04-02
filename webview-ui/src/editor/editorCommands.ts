@@ -16,7 +16,7 @@ export function runEditorCommand(
     },
 ): void {
     switch (cmdId) {
-        case 'paragraph': editor.chain().focus().setParagraph().run(); break;
+        // case 'paragraph': editor.chain().focus().setParagraph().run(); break;
         case 'bold':      editor.chain().focus().toggleBold().run(); break;
         case 'italic':    editor.chain().focus().toggleItalic().run(); break;
         case 'strike':    editor.chain().focus().toggleStrike().run(); break;
@@ -141,7 +141,7 @@ export function getAllCommands(): CommandDefined[] {
         { id: 'h1', label: t('slash.h1'), desc: t('slash.h1.desc'), icon: ICONS.h1, group: 'style', keywords: ['heading', 'h1', '标题', 'title'], slashCommand: true },
         { id: 'h2', label: t('slash.h2'), desc: t('slash.h2.desc'), icon: ICONS.h2, group: 'style', keywords: ['heading', 'h2', '标题'], slashCommand: true },
         { id: 'h3', label: t('slash.h3'), desc: t('slash.h3.desc'), icon: ICONS.h3, group: 'style', keywords: ['heading', 'h3', '标题'], slashCommand: true },
-        { id: 'paragraph', label: t('cmd.paragraph'), desc: t('cmd.paragraph.desc'), icon: ICONS.paragraph, group: 'style', keywords: ['paragraph', 'normal', '正文'], slashCommand: false },
+        // { id: 'paragraph', label: t('cmd.paragraph'), desc: t('cmd.paragraph.desc'), icon: ICONS.paragraph, group: 'style', keywords: ['paragraph', 'normal', '正文'], slashCommand: false },
         { id: 'bold', label: t('cmd.bold'), desc: t('cmd.bold.desc'), icon: ICONS.bold, group: 'style', keywords: ['bold', 'strong', '加粗'], slashCommand: false },
         { id: 'italic', label: t('cmd.italic'), desc: t('cmd.italic.desc'), icon: ICONS.italic, group: 'style', keywords: ['italic', 'em', '斜体'], slashCommand: false },
         { id: 'strike', label: t('cmd.strike'), desc: t('cmd.strike.desc'), icon: ICONS.strike, group: 'style', keywords: ['strike', 'strikethrough', 's', '删除线'], slashCommand: false },
@@ -173,7 +173,7 @@ export const ICONS = {
     h1: svgIcon('<path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M17 12l3-2v8"/>'),
     h2: svgIcon('<path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1"/>'),
     h3: svgIcon('<path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M17.5 10.5c1.7-1 3.5 0 3.5 1.5a2 2 0 0 1-2 2"/><path d="M17 17.5c2 1.5 4 .3 4-1.5a2 2 0 0 0-2-2"/>'),
-    paragraph: svgIcon('<path d="M13 4v16"/><path d="M17 4H9.5a4.5 4.5 0 0 0 0 9H13"/>'),
+    // paragraph: svgIcon('<path d="M13 4v16"/><path d="M17 4H9.5a4.5 4.5 0 0 0 0 9H13"/>'),
     bold: svgIcon('<path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/>'),
     italic: svgIcon('<line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/>'),
     strike: svgIcon('<line x1="5" y1="12" x2="19" y2="12"/><path d="M16 6C16 6 14.5 4 12 4C9.5 4 8 5.5 8 7.5C8 9.5 10 10.5 12 11"/><path d="M8 18C8 18 9.5 20 12 20C14.5 20 16 18.5 16 16.5C16 14.5 14 13.5 12 13"/>'),
