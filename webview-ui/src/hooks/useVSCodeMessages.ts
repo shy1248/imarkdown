@@ -131,7 +131,7 @@ export function useVSCodeMessages({
                 if (blockS) {
                     const spacingEl = document.getElementById('node-spacing-style');
                     if (spacingEl) {
-                        const bS = blockS || '1.5em';
+                        const bS = blockS;
                         spacingEl.textContent = [
                             `.ProseMirror p { margin: ${bS} 0; }`,
                             `.ProseMirror ul, .ProseMirror ol { margin: 0; }`,

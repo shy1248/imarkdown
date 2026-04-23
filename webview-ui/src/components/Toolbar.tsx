@@ -64,7 +64,7 @@ function getActiveCommands(editor: Editor): Set<string> {
         if (hasQuote ) { active.add('quote'); return active; };
 
         // 第 6 层：普通段落
-        if (editor.isActive('paragraph')) { active.add('paragraph'); return active; };
+        // if (editor.isActive('paragraph')) { active.add('paragraph'); return active; };
     } catch { /* ignore */ }
     return active;
 }
