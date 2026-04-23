@@ -63,12 +63,13 @@
     padding: 0 !important;
 }
 
-/* 语言标签（右上角徽标） */
-.ProseMirror pre[data-language]::before {
-    content: attr(data-language);
+/* 优先使用真实 DOM 标签，解决某些环境伪元素 hover 失效的问题 */
+.ProseMirror pre .code-language-label {
     position: absolute;
     top: 6px;
     right: 8px;
+    width: 72px;
+    text-align: center;
     font-size: 11px;
     padding: 2px 6px;
     border-radius: 3px;
@@ -78,6 +79,16 @@
     text-transform: none;
     cursor: pointer;
     user-select: none;
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+    transition: opacity 120ms ease-in-out, transform 120ms ease-in-out;
+    z-index: 4; /* 高于伪元素 */
+}
+
+.ProseMirror pre:focus-within .code-language-label,
+.ProseMirror pre .code-language-label:hover {
+    opacity: 1;
+    transform: none;
 }
 .code-lang-dropdown {
     position: fixed;
@@ -152,13 +163,4 @@
     color: var(--vscode-descriptionForeground, #888);
     cursor: default;
     font-style: italic;
-}
-
-/* 仅当指针直接悬停在语言标签上时才高亮
-   （.badge-hovered 类由 codeBlockLanguage.ts 中的 mousemove 事件处理器切换，
-   而非通过 pre:hover，后者会在光标位于代码块任意位置时触发）。 */
-.ProseMirror pre.badge-hovered::before {
-    background-color: color-mix(in srgb, var(--vscode-editorGroup-border) 20%, var(--vscode-editor-background));
-    border-color: var(--vscode-editorGroup-border);
-    color: var(--vscode-foreground);
 }

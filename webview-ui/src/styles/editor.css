@@ -194,7 +194,7 @@ body[data-content-ready] .ProseMirror p.empty-paragraph-with-placeholder::before
    用自定义 ::before + counter() 替换浏览器默认 ::marker，
    使数字与无序列表项目符号和任务列表复选框位于相同的 top 位置，
    确保三种标记类型垂直对齐。 */
-.ProseMirror ol {
+/* .ProseMirror ol {
     counter-reset: ol-item;
 }
 
@@ -213,7 +213,7 @@ body[data-content-ready] .ProseMirror p.empty-paragraph-with-placeholder::before
     text-align: right;
     line-height: 1;
     font-variant-numeric: tabular-nums;
-}
+} */
 
 /* 任务列表 */
 .ProseMirror ul[data-type="taskList"] {

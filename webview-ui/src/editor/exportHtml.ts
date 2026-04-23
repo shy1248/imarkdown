@@ -229,7 +229,7 @@ ul:not([data-type="taskList"]) > li > ul > li > ul > li::before {
 }
 
 /* ── 有序列表 ── */
-ol { counter-reset: ol-item; }
+/* ol { counter-reset: ol-item; }
 ol > li {
     list-style: none;
     position: relative;
@@ -241,7 +241,7 @@ ol > li::before {
     left: -2em; top: 0.25em;
     width: 1.6em; text-align: right; line-height: 1;
     font-variant-numeric: tabular-nums;
-}
+}*/
 
 /* ── 任务列表 ── */
 ul[data-type="taskList"] { list-style: none; padding-left: 2em; margin: 0; }

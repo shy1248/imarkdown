@@ -2,14 +2,14 @@
 
 一个强大的 WYSIWYG（所见即所得）编辑器，适用于 VS Code 和 Cursor 中的 Markdown 文件。使用由 Tiptap 提供支持的可视化富文本界面编辑 Markdown 文件。
 
-[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=shy1248.imarkdown-editor)
+从 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=shy1248.imarkdown-editor) 安装。
 
-![Image](images/paste-20260322142310.png)
+![Image](images/paste-20260423172615.png)
 
 ## 功能
 
 - 所见及所得编辑: 使用可视化富文本编辑器编辑 Markdown 文件；
-- 语法高亮: 支持代码块语法高亮显示，并自适应VSCode主题；可动态调整代码语言类型；
+- 语法高亮: 支持代码块语法高亮显示，并自适应 VS Code 主题；可动态调整代码语言类型；
 - 自适应 VS Code：编辑器自适应 VS Code 主题、字体、行距；支持**加粗**、*斜体*、~~删除线~~、`行内代码`高亮显示；
 - 完整的 Markdown 支持：所有标准 Markdown 功能，包括表格、图像、代码块、链接、任务列表等无缝集成；
 - 右键菜单支持在所见即所得和纯文本模式之间轻松切换；
@@ -20,7 +20,7 @@
 - 支持输入 `/` 快速插入；
 - 手动输入链接和图片时，支持路径自动补全；
 - 支持全文检索和跳转；
-- 支持右键导出为Html、复制为 Markdown 文本。
+- 支持右键导出为 Html、复制为 Markdown 文本。
 
 ## 使用
 

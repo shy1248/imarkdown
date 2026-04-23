@@ -53,9 +53,10 @@ function closeDropdown() {
 /** 标签占据 <pre> 右上角区域，当鼠标坐标（clientX/Y）位于该区域内时返回 true。 */
 function isOverBadge(pre: HTMLElement, clientX: number, clientY: number): boolean {
     const rect = pre.getBoundingClientRect();
-    const relX = clientX - rect.left;
-    const relY = clientY - rect.top;
-    return relX >= rect.width - 120 && relY <= 32;
+    return clientX > rect.right - 95 &&
+        clientX < rect.right - 10 &&
+        clientY > rect.top + 6 &&
+        clientY < rect.top + 32;
 }
 
 function openLanguageDropdown(
@@ -168,30 +169,6 @@ export const CodeBlockLanguageSelector = Extension.create({
                 key: new PluginKey('codeBlockLanguageSelector'),
                 props: {
                     handleDOMEvents: {
-                        mousemove: (_view, event) => {
-                            // 仅当指针确实位于标签上时才高亮
-                            const target = event.target as HTMLElement;
-                            const pre = target.closest('pre[data-language]') as HTMLElement | null;
-
-                            // 移除所有不再满足条件的 <pre> 上的高亮
-                            document.querySelectorAll('pre.badge-hovered').forEach((el) => {
-                                if (el !== pre || (pre && !isOverBadge(pre, event.clientX, event.clientY))) {
-                                    el.classList.remove('badge-hovered');
-                                }
-                            });
-
-                            if (pre && isOverBadge(pre, event.clientX, event.clientY)) {
-                                pre.classList.add('badge-hovered');
-                            }
-                            return false;
-                        },
-                        mouseleave: (_view, event) => {
-                            // 指针完全离开编辑器时清除高亮
-                            const target = event.target as HTMLElement;
-                            const pre = target.closest('pre[data-language]') as HTMLElement | null;
-                            if (pre) pre.classList.remove('badge-hovered');
-                            return false;
-                        },
                         click: (view, event) => {
                             const target = event.target as HTMLElement;
                             const pre = target.closest('pre[data-language]') as HTMLElement | null;

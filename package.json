@@ -2,7 +2,7 @@
     "name": "imarkdown-editor",
     "displayName": "iMarkdown - Markdown WYSIWYG Editor",
     "description": "Markdown editor with WYSIWYG mode.",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "publisher": "shy1248",
     "repository": {
         "type": "git",

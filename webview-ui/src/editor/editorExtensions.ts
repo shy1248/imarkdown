@@ -31,7 +31,7 @@ import { createPathCompletionExtension } from './markdown/pathCompletion';
 import { imageUpload } from './image/imageUpload';
 import { TableControls } from './table/tableControls';
 import { linkInsert } from './link/linkInsert';
-import { CodeBlockLanguageSelector } from './code/codeLlanguage';
+import { CodeBlockLanguageSelector } from './code/codeLanguage';
 import { createSearchPlugin } from '../components/SearchBar';
 import { resizableImage } from './image/resizableImage';
 import { CustomCodeBlock } from './code/codeBlock';

@@ -2,7 +2,7 @@
  * codeBlockLanguage.ts 的测试 — SUPPORTED_LANGUAGES 数组完整性校验
  */
 import { describe, it, expect } from 'vitest';
-import { SUPPORTED_LANGUAGES } from '../editor/code/codeLlanguage';
+import { SUPPORTED_LANGUAGES } from '../editor/code/codeLanguage';
 
 describe('SUPPORTED_LANGUAGES', () => {
     it('应为非空数组', () => {
