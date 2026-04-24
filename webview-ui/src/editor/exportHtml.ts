@@ -183,7 +183,12 @@ function buildFontStyleTag(editorDom: HTMLElement): string {
             // 保留 blockquote 视觉样式（背景、边框、圆角、内边距）
             `blockquote { margin: ${blockquote.top} 0 ${blockquote.bottom} 0; padding-left: ${blockquotePaddingLeft}; padding-right: ${blockquotePaddingRight}; background-color: ${blockquoteBg}; border-left: ${blockquoteBorderLeft}; border-top: ${blockquoteBorderTop}; border-right: ${blockquoteBorderRight}; border-bottom: ${blockquoteBorderBottom}; border-radius: ${blockquoteBorderRadius}; margin-left: 0; }`,
             // 保留代码块视觉样式（背景、边框、圆角、内边距）
-            `pre { margin: ${pre.top} 0 ${pre.bottom} 0; padding: ${prePadding}; background-color: ${preBg}; border: ${preBorder}; border-radius: ${preBorderRadius}; overflow: auto; }`,
+            // position:relative 使语言标签能正确定位
+            `pre { margin: ${pre.top} 0 ${pre.bottom} 0; padding: ${prePadding}; background-color: ${preBg}; border: ${preBorder}; border-radius: ${preBorderRadius}; overflow: auto; position: relative; }`,
+            // 代码语言标签样式（导出为静态 HTML）
+            `.code-language-label { float: right; font-size: 11px; padding: 2px 6px; border-radius: 3px; background-color: ${preBg}; color: #666; border: 1px solid #d0d7de; margin: -0.4em 0 4px 6px; }`,
+            // 代码行号样式（与编辑器一致）
+            `.code-ln { display: inline-block; text-align: right; color: rgba(150, 150, 150, 0.5); font-size: inherit; line-height: inherit; font-family: inherit; pointer-events: none; user-select: none; -webkit-user-select: none; vertical-align: top; box-sizing: border-box; }`,
             `hr { margin: ${hr.top} 0 ${hr.bottom} 0; }`,
             `.tableWrapper { margin: ${tableW.top} 0 ${tableW.bottom} 0; }`,
             `figure { margin: ${figure.top} 0 ${figure.bottom} 0; }`,
@@ -325,11 +330,24 @@ function removeEditorUI(clone: HTMLElement): void {
     clone.querySelectorAll('.link-inline-edit, .image-inline-edit, .math-inline-edit').forEach(el => el.remove());
     clone.querySelectorAll('.resize-handle').forEach(el => el.remove());
     clone.querySelectorAll('.table-controls, .add-row-btn, .add-col-btn, .column-resize-handle').forEach(el => el.remove());
-    // 移除行号挂件（.code-ln span）及相关类
-    clone.querySelectorAll('.code-ln').forEach(el => el.remove());
-    clone.querySelectorAll('.code-line-numbers').forEach(el => el.remove());
-    // 从 pre 元素上移除 has-line-numbers 类
-    clone.querySelectorAll('pre.has-line-numbers').forEach(el => el.classList.remove('has-line-numbers'));
+    // 标题折叠按钮（导出的静态 HTML 不需要交互）
+    // 行号保留（与编辑器一致）
+    // 清理行号 span 上的编辑器专用属性
+    clone.querySelectorAll('.code-ln').forEach(el => {
+        el.removeAttribute('contenteditable');
+        el.removeAttribute('aria-hidden');
+    });
+    // 清理语言标签上的编辑器专用属性
+    clone.querySelectorAll('.code-language-label').forEach(el => {
+        el.removeAttribute('tabindex');
+    });
+    clone.querySelectorAll('.heading-fold-btn').forEach(el => el.remove());
+    // 移除折叠状态标记（使导出 HTML 显示完整内容）
+    clone.querySelectorAll('.heading-folded').forEach(el => el.classList.remove('heading-folded'));
+    // 移除标题上的折叠相关 data 属性
+    clone.querySelectorAll('h1, h2, h3').forEach(el => {
+        el.removeAttribute('data-collapsed');
+    });
 
     // ── 图片 figure：内联样式使导出 HTML 正确渲染 ──
     // 编辑器使用 CSS 类（.image-resize-container、.image-caption），依赖

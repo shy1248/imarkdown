@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { exec } from 'child_process';
 import { i18n } from './i18n';
 
 /**
@@ -133,6 +134,22 @@ export async function exportAsHtml(
         openInBrowser
     );
     if (action === openInBrowser) {
-        vscode.env.openExternal(saveUri);
+        // vscode.env.openExternal 对 file: URI 在 Windows 上行为不一致，
+        // 直接使用系统命令在默认浏览器中打开。
+        const filePath = saveUri.fsPath;
+        const platform = process.platform;
+        let cmd: string;
+        if (platform === 'win32') {
+            cmd = `start "" "${filePath.replace(/"/g, '""')}"`;
+        } else if (platform === 'darwin') {
+            cmd = `open "${filePath.replace(/"/g, '\\"')}"`;
+        } else {
+            cmd = `xdg-open "${filePath.replace(/"/g, '\\"')}"`;
+        }
+        exec(cmd, (err) => {
+            if (err) {
+                vscode.window.showErrorMessage(i18n.t('openBrowserError', { error: err.message }));
+            }
+        });
     }
 }
