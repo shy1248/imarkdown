@@ -1,9 +1,18 @@
+/**
+ * 代码块语法高亮与语言选择器。
+ *
+ * - Shiki 语法高亮：基于 token 的精确着色
+ * - 语言选择器：点击标签打开下拉列表切换语言
+ * - 行号显示：支持软换行对齐的内联行号
+ */
+
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { Extension } from '@tiptap/core';
 import { createHighlighterCore, type HighlighterCore } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
+import { t } from '../../i18n';
 
 // 导入打包的语言高亮配置
 import javascript from 'shiki/langs/javascript.mjs';
@@ -44,29 +53,134 @@ import diff from 'shiki/langs/diff.mjs';
 import ini from 'shiki/langs/ini.mjs';
 import nginx from 'shiki/langs/nginx.mjs';
 
-export const bundledLangs = [
-    javascript, typescript, html, css, json, yaml, markdown, python, bash, sql,
-    tsx, jsx, java, c, cpp, csharp, go, rust, ruby, php, swift, kotlin, scala,
-    powershell, toml, xml, scss, less, graphql, docker, terraform, lua, r, latex,
-    diff, ini, nginx,
+/**
+ * 代码块语言注册表。
+ *
+ * 以语言条目为核心，每条语言同时定义 shiki 模块和别名，
+ * 添加新语言只需在 langs 数组中追加一条记录即可，
+ * bundled / aliases / selector 均从中自动派生。
+ */
+
+interface LangEntry {
+    /** 标准 ID（用于 data-language 属性和选择器显示）。 */
+    id: string;
+    /** Shiki 语言高亮模块，无高亮支持时省略。 */
+    module?: LanguageInput;
+    /** 别名列表（短名、常见变体等），映射到 id。 */
+    aliases?: string[];
+    /** 是否在选择器中显示，默认 true。设为 false 可隐藏仅有别名用途的条目。 */
+    visible?: boolean;
+}
+
+type LanguageInput = typeof javascript; // shiki LanguageRegistration
+
+const langs: LangEntry[] = [
+    // ── Shell / 脚本 ──────────────────────────────────────────
+    { id: 'bash',          module: bash,          aliases: ['sh', 'shell', 'shellscript', 'zsh'] },
+    { id: 'powershell',    module: powershell,     aliases: ['ps1', 'ps'] },
+    { id: 'batch',                                          visible: true },
+    // ── Web 前端 ──────────────────────────────────────────────
+    { id: 'html',          module: html,           aliases: ['htm'] },
+    { id: 'css',           module: css },
+    { id: 'scss',          module: scss },
+    { id: 'less',          module: less },
+    { id: 'javascript',    module: javascript,      aliases: ['js', 'mjs', 'cjs'] },
+    { id: 'typescript',    module: typescript,       aliases: ['ts', 'mts', 'cts'] },
+    { id: 'jsx',           module: jsx },
+    { id: 'tsx',           module: tsx },
+    // ── 数据 / 配置 ───────────────────────────────────────────
+    { id: 'json',          module: json },
+    { id: 'jsonc',                                          visible: true },
+    { id: 'yaml',          module: yaml,            aliases: ['yml'] },
+    { id: 'toml',          module: toml },
+    { id: 'xml',           module: xml },
+    { id: 'ini',           module: ini,             aliases: ['dotenv'] },
+    // ── 系统级语言 ────────────────────────────────────────────
+    { id: 'c',             module: c },
+    { id: 'cpp',           module: cpp },
+    { id: 'csharp',       module: csharp,          aliases: ['cs'] },
+    { id: 'go',            module: go },
+    { id: 'rust',          module: rust,            aliases: ['rs'] },
+    { id: 'swift',         module: swift },
+    // ── JVM 平台 ──────────────────────────────────────────────
+    { id: 'java',          module: java },
+    { id: 'kotlin',        module: kotlin,           aliases: ['kt', 'kts'] },
+    { id: 'scala',         module: scala },
+    { id: 'groovy',                                         visible: true },
+    // ── 脚本语言 ──────────────────────────────────────────────
+    { id: 'python',        module: python,           aliases: ['py', 'python3'] },
+    { id: 'ruby',          module: ruby,             aliases: ['rb'] },
+    { id: 'php',           module: php },
+    { id: 'lua',           module: lua },
+    { id: 'perl',                                           visible: true },
+    { id: 'r',             module: r },
+    // ── 函数式语言 ────────────────────────────────────────────
+    { id: 'haskell',                                        visible: true },
+    { id: 'elixir',                                         visible: true },
+    { id: 'erlang',                                         visible: true },
+    { id: 'clojure',                                        visible: true },
+    { id: 'fsharp',                                         visible: true },
+    { id: 'ocaml',                                          visible: true },
+    // ── 移动端 ────────────────────────────────────────────────
+    { id: 'objective-c',                                    visible: true },
+    { id: 'dart',                                           visible: true },
+    // ── 数据库 ────────────────────────────────────────────────
+    { id: 'sql',           module: sql },
+    { id: 'graphql',       module: graphql },
+    { id: 'cypher',                                         visible: true },
+    // ── 基础设施 ──────────────────────────────────────────────
+    { id: 'docker',        module: docker,           aliases: ['dockerfile'] },
+    { id: 'terraform',     module: terraform,         aliases: ['tf', 'hcl'] },
+    { id: 'nginx',         module: nginx },
+    // ── 标记 / 文档 ───────────────────────────────────────────
+    { id: 'markdown',      module: markdown,          aliases: ['md', 'commonmark', 'gfm'] },
+    { id: 'latex',         module: latex,             aliases: ['tex'] },
+    { id: 'rst',                                             visible: true },
+    // ── 其他 ──────────────────────────────────────────────────
+    { id: 'diff',          module: diff },
+    { id: 'git-commit',                                      visible: true },
+    { id: 'makefile',                                        visible: true },
+    { id: 'cmake',                                           visible: true },
+    { id: 'vue',                                             visible: true },
+    { id: 'svelte',                                          visible: true },
+    { id: 'astro',                                           visible: true },
+    { id: 'proto',                                           visible: true },
+    { id: 'wasm',                                            visible: true },
+    { id: 'zig',                                             visible: true },
+    { id: 'nim',                                             visible: true },
+    { id: 'julia',                                           visible: true },
+    // ── 兜底 ──────────────────────────────────────────────────
+    { id: 'plaintext',                                      visible: true },
 ];
 
-export const langAliases: Record<string, string> = {
-    html: 'html', htm: 'html',
-    md: 'markdown', commonmark: 'markdown', gfm: 'markdown',
-    javascript: 'javascript', js: 'javascript', mjs: 'javascript', cjs: 'javascript',
-    typescript: 'typescript', ts: 'typescript', mts: 'typescript', cts: 'typescript',
-    sh: 'bash', shell: 'bash', shellscript: 'bash', zsh: 'bash',
-    yml: 'yaml',
-    py: 'python', python3: 'python',
-    cs: 'csharp',
-    rb: 'ruby',
-    rs: 'rust',
-    kt: 'kotlin', kts: 'kotlin',
-    ps1: 'powershell', ps: 'powershell',
-    tf: 'terraform', hcl: 'terraform',
-    dockerfile: 'docker',
-    tex: 'latex',
+export const langRegistry = {
+    /** Shiki 打包的语言高亮模块（传入 createHighlighterCore）。 */
+    get bundled(): LanguageInput[] {
+        return langs.filter(l => l.module).map(l => l.module!);
+    },
+
+    /** 语言别名映射（短名 / 变体 → 标准 ID）。 */
+    get aliases(): Record<string, string> {
+        const map: Record<string, string> = {};
+        for (const l of langs) {
+            // 标准 ID 自映射，确保 resolve 时总能命中
+            map[l.id] = l.id;
+            if (l.aliases) {
+                for (const a of l.aliases) map[a] = l.id;
+            }
+        }
+        return map;
+    },
+
+    /** 语言选择器中展示的 ID 列表。 */
+    get selector(): string[] {
+        return langs.filter(l => l.visible !== false).map(l => l.id);
+    },
+
+    /** 将任意语言标识解析为标准 ID，未命中时原样返回。 */
+    resolve(id: string): string {
+        return this.aliases[id] || id;
+    },
 };
 
 let highlighter: HighlighterCore | null = null;
@@ -84,7 +198,7 @@ export async function initHighlighter(theme: object): Promise<HighlighterCore | 
         return await createHighlighterCore({
             engine: createJavaScriptRegexEngine(),
             themes: [theme],
-            langs: bundledLangs,
+            langs: langRegistry.bundled,
         });
     } catch (error) {
         console.error('[iMarkdown] Shiki 高亮器创建失败:', error);
@@ -213,7 +327,7 @@ function createDecorations(doc: ProseMirrorNode): DecorationSet {
         if (node.type.name !== 'codeBlock') return;
 
         let language = node.attrs.language || '';
-        language = langAliases[language] || language || 'javascript';
+        language = langRegistry.resolve(language) || 'javascript';
 
         // 为所有代码块添加逐行内联行号组件
         if (showLineNumbers) {
@@ -312,6 +426,227 @@ export const ShikiHighlight = Extension.create({
                 props: {
                     decorations(state) {
                         return this.getState(state);
+                    },
+                },
+            }),
+        ];
+    },
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 语言选择器
+// ═══════════════════════════════════════════════════════════════════════════
+
+let activeDropdown: HTMLElement | null = null;
+let activeDropdownPre: HTMLElement | null = null;
+
+function closeDropdown() {
+    if (activeDropdown) {
+        activeDropdown.remove();
+        activeDropdown = null;
+    }
+    if (activeDropdownPre) {
+        activeDropdownPre = null;
+    }
+}
+
+/** 标签占据 <pre> 右上角区域，当鼠标坐标（clientX/Y）位于该区域内时返回 true。 */
+function isOverBadge(pre: HTMLElement, clientX: number, clientY: number): boolean {
+    const badge = pre.querySelector('.code-language-label') as HTMLElement | null;
+    if (!badge) return false;
+    const rect = badge.getBoundingClientRect();
+    // 稍微扩大点击区域以提升易用性
+    return clientX >= rect.left - 4 &&
+        clientX <= rect.right + 4 &&
+        clientY >= rect.top - 4 &&
+        clientY <= rect.bottom + 4;
+}
+
+function openLanguageDropdown(
+    anchorEl: HTMLElement,
+    currentLang: string,
+    onSelect: (lang: string) => void,
+) {
+    closeDropdown();
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'code-lang-dropdown';
+    activeDropdown = dropdown;
+    activeDropdownPre = anchorEl;
+
+    // 搜索输入框
+    const search = document.createElement('input');
+    search.type = 'text';
+    search.className = 'code-lang-search';
+    search.placeholder = t('codeLang.searchPlaceholder');
+    dropdown.appendChild(search);
+
+    const list = document.createElement('ul');
+    list.className = 'code-lang-list';
+    dropdown.appendChild(list);
+
+    function renderList(filter: string) {
+        list.innerHTML = '';
+        const filtered = filter
+            ? langRegistry.selector.filter((l: string) => l.includes(filter.toLowerCase()))
+            : [...langRegistry.selector];
+        if (filtered.length === 0) {
+            const li = document.createElement('li');
+            li.className = 'code-lang-item code-lang-item--empty';
+            li.textContent = t('codeLang.noResults');
+            list.appendChild(li);
+            return;
+        }
+        for (const lang of filtered) {
+            const li = document.createElement('li');
+            li.className = 'code-lang-item' + (lang === currentLang ? ' code-lang-item--active' : '');
+            li.textContent = lang;
+            li.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onSelect(lang);
+                closeDropdown();
+            });
+            list.appendChild(li);
+        }
+    }
+
+    renderList('');
+    search.addEventListener('input', () => renderList(search.value));
+
+    // 先追加到 DOM 以便测量实际渲染高度
+    document.body.appendChild(dropdown);
+
+    // 以标签自身的边界矩形作为定位锚点（float 布局下位置由渲染决定）。
+    const badge = anchorEl.querySelector('.code-language-label') as HTMLElement | null;
+    let badgeTop: number, badgeBottom: number, badgeRight: number;
+    if (badge) {
+        const badgeRect = badge.getBoundingClientRect();
+        badgeTop = badgeRect.top;
+        badgeBottom = badgeRect.bottom;
+        badgeRight = badgeRect.right;
+    } else {
+        // 回退：基于 <pre> 估算
+        const preRect = anchorEl.getBoundingClientRect();
+        badgeTop = preRect.top + 6;
+        badgeBottom = preRect.top + 32;
+        badgeRight = preRect.right - 8;
+    }
+
+    const dropH = dropdown.offsetHeight;
+    const dropW = dropdown.offsetWidth;
+
+    // 判断下拉菜单是在标签下方还是上方展开
+    const spaceBelow = window.innerHeight - badgeBottom - 4;
+    const spaceAbove = badgeTop - 4;
+    let top: number;
+    if (spaceBelow >= dropH || spaceBelow >= spaceAbove) {
+        top = badgeBottom + 4;
+    } else {
+        top = badgeTop - dropH - 4;
+    }
+
+    let left = badgeRight - dropW;
+    if (left < 4) left = 4;
+    if (left + dropW > window.innerWidth - 4) left = window.innerWidth - dropW - 4;
+
+    dropdown.style.top = `${top}px`;
+    dropdown.style.left = `${left}px`;
+
+    // 编辑器滚动时关闭下拉菜单
+    const handleScroll = () => {
+        if (activeDropdown) closeDropdown();
+    };
+    const editorEl = anchorEl.closest('.ProseMirror') || anchorEl.closest('[contenteditable]');
+    if (editorEl) {
+        editorEl.addEventListener('scroll', handleScroll, { once: true, passive: true });
+        // 同时监听最近的滚动祖先（如 webview 容器）
+        let scrollParent = editorEl.parentElement;
+        while (scrollParent) {
+            const style = getComputedStyle(scrollParent);
+            if (style.overflow === 'auto' || style.overflow === 'scroll' ||
+                style.overflowY === 'auto' || style.overflowY === 'scroll') {
+                scrollParent.addEventListener('scroll', handleScroll, { once: true, passive: true });
+            }
+            scrollParent = scrollParent.parentElement;
+        }
+    }
+
+    // 点击外部时关闭，但点击打开它的标签时不关闭
+    //（该情况由插件中的点击切换逻辑处理）。
+    const handleOutside = (e: MouseEvent) => {
+        if (dropdown.contains(e.target as Node)) return;
+        // 若点击的是同一 <pre> 的标签，让插件的点击切换逻辑处理
+        if (activeDropdownPre && isOverBadge(activeDropdownPre, e.clientX, e.clientY)) return;
+        closeDropdown();
+        document.removeEventListener('mousedown', handleOutside, true);
+    };
+    document.addEventListener('mousedown', handleOutside, true);
+
+    // 将当前活跃项滚动到可视范围并聚焦搜索框
+    setTimeout(() => {
+        const active = list.querySelector('.code-lang-item--active') as HTMLElement | null;
+        if (active) active.scrollIntoView({ block: 'nearest' });
+        search.focus();
+    }, 0);
+}
+
+export const CodeBlockLanguageSelector = Extension.create({
+    name: 'codeBlockLanguageSelector',
+
+    addProseMirrorPlugins() {
+        return [
+            new Plugin({
+                key: new PluginKey('codeBlockLanguageSelector'),
+                props: {
+                    handleDOMEvents: {
+                        click: (view, event) => {
+                            const target = event.target as HTMLElement;
+                            const pre = target.closest('pre[data-language]') as HTMLElement | null;
+                            if (!pre) return false;
+
+                            if (!isOverBadge(pre, event.clientX, event.clientY)) return false;
+
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            // 切换：若下拉菜单已为该 <pre> 打开，则关闭。
+                            if (activeDropdown && activeDropdownPre === pre) {
+                                closeDropdown();
+                                return true;
+                            }
+
+                            const currentLang = pre.getAttribute('data-language') || 'shell';
+
+                            // 在点击时立即获取代码块节点位置，
+                            // 避免回调依赖失效的 DOM 引用。
+                            let clickPos = -1;
+                            view.state.doc.descendants((n, p) => {
+                                if (clickPos !== -1) return false;
+                                if (n.type.name === 'codeBlock') {
+                                    const dom = view.nodeDOM(p);
+                                    if (dom === pre || (dom as HTMLElement)?.contains(pre)) {
+                                        clickPos = p;
+                                        return false;
+                                    }
+                                }
+                            });
+                            if (clickPos === -1) return false;
+
+                            openLanguageDropdown(pre, currentLang, (lang) => {
+                                // 使用最新的 view.state（选择时的当前状态），
+                                // 但位置使用点击时捕获的值。
+                                const node = view.state.doc.nodeAt(clickPos);
+                                if (!node || node.type.name !== 'codeBlock') return;
+                                const tr = view.state.tr.setNodeMarkup(clickPos, undefined, {
+                                    ...node.attrs,
+                                    language: lang,
+                                });
+                                view.dispatch(tr);
+                            });
+
+                            return true;
+                        },
                     },
                 },
             }),

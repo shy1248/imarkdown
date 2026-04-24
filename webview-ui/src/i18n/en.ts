@@ -70,6 +70,8 @@ const en = {
   'search.next': 'Next match',
   'drag.insertBelow': 'Insert paragraph below',
   'drag.reorder': 'Drag to reorder',
+  'heading.fold': 'Fold',
+  'heading.unfold': 'Unfold',
   'Confirm (Enter)': 'Confirm (Enter)',
   'Cancel (Esc)': 'Cancel (Esc)',
   'cmd.paragraph': 'Paragraph',

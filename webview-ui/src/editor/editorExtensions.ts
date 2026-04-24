@@ -14,16 +14,18 @@ import './markdown/patches';
 
 import StarterKit from '@tiptap/starter-kit';
 import HorizontalRule from '@tiptap/extension-horizontal-rule';
+import { Heading } from '@tiptap/extension-heading';
 import { TaskItem } from '@tiptap/extension-task-item';
 import { Link } from '@tiptap/extension-link';
 import { TableRow } from '@tiptap/extension-table-row';
 import { Markdown } from 'tiptap-markdown';
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { NodeSelection } from '@tiptap/pm/state';
 
 import { CustomInlineMath, CustomBlockMath } from './math/mathematic';
-import { ShikiHighlight } from './code/codeHighlight';
+import { ShikiHighlight, CodeBlockLanguageSelector } from './code/codeHighlight';
 import type { SlashCommandCallbacks } from './slashAction';
 import { slashAction } from './slashAction';
 import type { PathCompletionCallbacks } from './markdown/pathCompletion';
@@ -31,7 +33,6 @@ import { createPathCompletionExtension } from './markdown/pathCompletion';
 import { imageUpload } from './image/imageUpload';
 import { TableControls } from './table/tableControls';
 import { linkInsert } from './link/linkInsert';
-import { CodeBlockLanguageSelector } from './code/codeLanguage';
 import { createSearchPlugin } from '../components/SearchBar';
 import { resizableImage } from './image/resizableImage';
 import { CustomCodeBlock } from './code/codeBlock';
@@ -47,6 +48,87 @@ import {
     MarkdownLinkInputRule,
 } from './markdown/inputRules';
 import { IndentOutdent } from './indentOutdent';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 标题折叠：装饰构建
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * 创建标题折叠按钮的 widget 工厂。
+ * 按钮定位在标题行右侧，使用 position: absolute。
+ */
+function createFoldWidget(
+    pos: number,
+    collapsed: boolean,
+    level: number,
+): () => HTMLElement {
+    return () => {
+        const btn = document.createElement('button');
+        btn.className = 'heading-fold-btn';
+        btn.setAttribute('data-collapsed', String(collapsed));
+        btn.setAttribute('data-heading-pos', String(pos));
+        btn.setAttribute('aria-label', collapsed ? '展开' : '折叠');
+        btn.setAttribute('contenteditable', 'false');
+        btn.textContent = collapsed ? '▸' : '▾';
+        return btn;
+    };
+}
+
+/**
+ * 遍历文档，为所有 heading 节点添加折叠按钮 widget，
+ * 并为 collapsed=true 的标题到下一个同级/更高级标题之间的节点添加隐藏装饰。
+ */
+function buildFoldDecorations(doc: import('@tiptap/pm/model').Node): DecorationSet {
+    const decorations: Decoration[] = [];
+
+    // 收集所有折叠标题的信息
+    const collapsedHeadings: { pos: number; level: number }[] = [];
+
+    doc.forEach((node, offset) => {
+        // 为每个标题添加折叠按钮 widget（放在标题内容末尾）
+        if (node.type.name === 'heading') {
+            const level = node.attrs.level;
+            const collapsed = !!node.attrs.collapsed;
+            decorations.push(
+                Decoration.widget(
+                    offset + 1, // 标题内容起始位置
+                    createFoldWidget(offset, collapsed, level),
+                    { side: -1, key: `fold-${offset}-${collapsed ? 1 : 0}` },
+                ),
+            );
+            if (collapsed) {
+                collapsedHeadings.push({ pos: offset, level });
+            }
+        }
+    });
+
+    // 为折叠标题下方的内容添加隐藏装饰
+    for (const ch of collapsedHeadings) {
+        let foldEnd = doc.content.size;
+        let foundNext = false;
+
+        doc.forEach((node, offset) => {
+            if (foundNext) return;
+            if (offset <= ch.pos) return;
+            if (node.type.name === 'heading' && node.attrs.level <= ch.level) {
+                foldEnd = offset;
+                foundNext = true;
+            }
+        });
+
+        doc.forEach((node, offset) => {
+            if (offset <= ch.pos) return;
+            if (offset >= foldEnd) return;
+            decorations.push(
+                Decoration.node(offset, offset + node.nodeSize, {
+                    class: 'heading-folded',
+                }),
+            );
+        });
+    }
+
+    return DecorationSet.create(doc, decorations);
+}
 
 export interface ExtensionsConfig {
     resolveImageUrl: (src: string) => string;
@@ -69,8 +151,26 @@ export function createExtensions(config: ExtensionsConfig): { extensions: any[] 
             // 禁用内置 HorizontalRule——由下方 CustomHorizontalRule 替换，
             // 添加 atom: true 以修复 DragHandle 拖拽范围计算。
             horizontalRule: false,
-            heading: { levels: [1, 2, 3] },
+            heading: false,
         }),
+        // ── 自定义标题：支持折叠 ────────────────────────────────────────
+        // 在原生 Heading 基础上增加 collapsed 属性，
+        // 用于标题折叠功能（通过标题右侧按钮切换）。
+        Heading.extend({
+            addAttributes() {
+                return {
+                    ...this.parent?.(),
+                    collapsed: {
+                        default: false,
+                        parseHTML: (el) => el.getAttribute('data-collapsed') === 'true',
+                        renderHTML: (attrs) => {
+                            if (!attrs.collapsed) return {};
+                            return { 'data-collapsed': 'true' };
+                        },
+                    },
+                };
+            },
+        }).configure({ levels: [1, 2, 3] }),
         CustomBold,
         CustomItalic,
         CustomStrike,
@@ -250,6 +350,60 @@ export function createExtensions(config: ExtensionsConfig): { extensions: any[] 
                                 }
                                 view.dispatch(tr.scrollIntoView());
                                 return true;
+                            },
+                        },
+                    }),
+                ];
+            },
+        }),
+        // ── 标题折叠装饰 ─────────────────────────────────────────────────
+        // 为每个标题渲染折叠按钮，并为 collapsed=true 的标题隐藏其下方内容。
+        Extension.create({
+            name: 'headingFold',
+            addProseMirrorPlugins() {
+                return [
+                    new Plugin({
+                        key: new PluginKey('headingFold'),
+                        state: {
+                            init: (_, { doc }) => buildFoldDecorations(doc),
+                            apply: (tr, old) => {
+                                if (tr.docChanged || tr.getMeta('headingFoldToggle')) {
+                                    return buildFoldDecorations(tr.doc);
+                                }
+                                return old;
+                            },
+                        },
+                        props: {
+                            decorations(state) {
+                                return this.getState(state);
+                            },
+                            handleDOMEvents: {
+                                click: (view, event) => {
+                                    const target = event.target as HTMLElement;
+                                    const btn = target.closest('.heading-fold-btn') as HTMLElement | null;
+                                    if (!btn) return false;
+
+                                    event.preventDefault();
+                                    event.stopPropagation();
+
+                                    const headingPos = parseInt(btn.getAttribute('data-heading-pos') || '-1', 10);
+                                    if (headingPos < 0) return false;
+
+                                    const node = view.state.doc.nodeAt(headingPos);
+                                    if (!node || node.type.name !== 'heading') return false;
+
+                                    const newCollapsed = !node.attrs.collapsed;
+                                    view.dispatch(
+                                        view.state.tr
+                                            .setNodeMarkup(headingPos, undefined, {
+                                                ...node.attrs,
+                                                collapsed: newCollapsed,
+                                            })
+                                            .setMeta('headingFoldToggle', true)
+                                    );
+
+                                    return true;
+                                },
                             },
                         },
                     }),

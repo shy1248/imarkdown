@@ -70,6 +70,8 @@ const zh = {
   'search.next': '下一个匹配',
   'drag.insertBelow': '在下方插入段落',
   'drag.reorder': '拖拽调整顺序',
+  'heading.fold': '折叠',
+  'heading.unfold': '展开',
   'Confirm (Enter)': '确认 (Enter)',
   'Cancel (Esc)': '取消 (Esc)',
   'cmd.paragraph': '正文',
