@@ -110,7 +110,7 @@ export function scrollToHeading(editor: Editor, headingId: string): void {
             const currentScroll = isPageScroll
                 ? (scrollParent.scrollTop || window.scrollY || document.documentElement.scrollTop)
                 : scrollParent.scrollTop;
-            const relativeTop = headingRect.top - containerRect.top;
+            const relativeTop = headingRect.top - containerRect.top + 40;
             const targetTop = currentScroll + relativeTop - toolbarHeight - 8;
 
             scrollParent.scrollTo({ top: targetTop, behavior: 'smooth' });
