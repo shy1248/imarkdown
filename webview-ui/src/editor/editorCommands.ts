@@ -60,7 +60,7 @@ export function runEditorCommand(
                 editor.commands.focus();
                 break;
             }
-            const { empty } = editor.state.selection;
+            const empty = editor.state.selection.empty;
             if (empty) {
                 editor.chain().focus().insertLinkBlock().run();
             } else if (selectionHasLink(editor)) {

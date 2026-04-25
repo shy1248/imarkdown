@@ -105,6 +105,36 @@ body.reset-cursor * {
     border-color: var(--vscode-focusBorder, #007acc);
 }
 
+.link-insert-isolation .link-insert-input,
+.link-insert-isolation .link-insert-input-url,
+.link-insert-isolation .link-insert-field label,
+.link-insert-isolation .link-insert-btn,
+.link-insert-isolation .inline-edit-input,
+.link-insert-isolation .inline-edit-textarea {
+    font-style: normal !important;
+    font-weight: 400 !important;
+}
+
+
+/* 当链接挂件打开时，尽可能强力地关闭编辑器中所有 a 的下划线渲染。
+   许多主题/VSCode 可能通过 text-decoration、border-bottom 或伪元素绘制下划线，
+   因此需要覆盖这些常见做法。 */
+.ProseMirror a {
+    /* 只覆盖 a 本身，避免影响其后代（例如输入框的 border/bottom） */
+    text-decoration: none !important;
+    text-decoration-line: none !important;
+    -webkit-text-decoration: none !important;
+    text-decoration-color: transparent !important;
+    border-bottom: none !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+/* 打开链接编辑挂件时临时隐藏标题右侧的折叠按钮（避免遮挡/视觉干扰）。 */
+body.link-widget-open .heading-fold-btn {
+    display: none !important;
+}
+
 .link-insert-actions {
     display: flex;
     gap: 8px;

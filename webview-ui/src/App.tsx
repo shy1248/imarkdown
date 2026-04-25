@@ -299,7 +299,10 @@ export default function App() {
     const executeToolbarCommand = useCallback((cmdId: string) => {
         const ed = editorRef.current;
         if (!ed) return;
-        if (cmdId !== 'emoji') ed.chain().focus().run();
+        // link 命令：关闭 widget 时需要先 dispatch close 再 focus，
+        // 若在此处提前 focus，caret-color:transparent 仍生效导致光标消失，
+        // 所以跳过前置 focus，由 runEditorCommand 内部处理。
+        if (cmdId !== 'emoji' && cmdId !== 'link') ed.chain().focus().run();
         runEditorCommand(ed, cmdId, { emojiPickerAnchorRef, setEmojiAnchor });
     }, [setEmojiAnchor]);
 

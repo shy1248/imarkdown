@@ -41,6 +41,8 @@ function buildWidget(
     const block = document.createElement('div');
     block.className = 'link-insert-block';
     block.setAttribute('data-link-insert', '');
+    // 始终添加隔离类，确保样式不从父节点继承（下划线/粗体/斜体等）
+    block.classList.add('link-insert-isolation');
 
     const icon = document.createElement('div');
     icon.className = 'link-insert-icon';
