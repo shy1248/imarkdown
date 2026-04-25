@@ -4,7 +4,7 @@
 
 从 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=shy1248.imarkdown-editor) 安装。
 
-![Image](images/paste-20260425120012.png)
+![Image](images/paste-20260425132305.png)
 
 ## 功能
 
