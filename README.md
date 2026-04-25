@@ -4,7 +4,7 @@
 
 从 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=shy1248.imarkdown-editor) 安装。
 
-![Image](images/paste-20260423172615.png)
+![Image](images/paste-20260425120012.png)
 
 ## 功能
 
@@ -17,6 +17,7 @@
 - 高效的图片插入，支持拖动插入图片、从剪切板粘贴图片，支持从图片右下角拖动调整大小（仅显示）；
 - 支持块和内联 Katex 公式的编辑和显示；
 - 自由拖动和调整文档元素的顺序；
+- 支持标题折叠；
 - 支持输入 `/` 快速插入；
 - 手动输入链接和图片时，支持路径自动补全；
 - 支持全文检索和跳转；
