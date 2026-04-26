@@ -1,10 +1,8 @@
 # imarkdown - Markdown 所见即所得编辑器
 
-一个强大的 WYSIWYG（所见即所得）编辑器，适用于 VS Code 和 Cursor 中的 Markdown 文件。使用由 Tiptap 提供支持的可视化富文本界面编辑 Markdown 文件。
+一个强大的 WYSIWYG（所见即所得）编辑器，适用于 VS Code 中的 Markdown 文件。使用 Tiptap 提供支持的可视化富文本界面编辑 Markdown 文件。从 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=shy1248.imarkdown-editor) 安装。
 
-从 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=shy1248.imarkdown-editor) 安装。
-
-![Image](images/paste-20260425132305.png)
+![Image](images/paste-20260426121720.png)
 
 ## 功能
 
