@@ -67,7 +67,7 @@ export class IMarkdownEditorProvider implements vscode.CustomTextEditorProvider 
             if (e.affectsConfiguration('imarkdown.editor') || e.affectsConfiguration('editor.lineHeight')) {
                 sendLayoutConfig(webviewPanel);
             }
-            if (e.affectsConfiguration('imarkdown.editor.showLineNumbers')) {
+            if (e.affectsConfiguration('imarkdown.editor.codeLineNumbers')) {
                 sendLineNumberConfig(webviewPanel);
             }
             if (e.affectsConfiguration('workbench.colorTheme') || e.affectsConfiguration('workbench.colorCustomizations')) {
@@ -182,13 +182,13 @@ function sendLayoutConfig(panel: vscode.WebviewPanel) {
     const vscodeLineHeight = editorCfg.get<number>('lineHeight', 0);
     const lineHeight = vscodeLineHeight > 0 ? vscodeLineHeight : 1.5;
 
-    const typesettingMap: Record<string, { inline: string; block: string }> = {
+    const layoutMap: Record<string, { inline: string; block: string }> = {
         compact:  { inline: '0.3em', block: '0.5em'  },
         moderate: { inline: '0.5em', block: '0.85em' },
         loose:    { inline: '0.8em', block: '1.3em'  },
     };
-    const typesetting = cfg.get<string>('typesetting', 'moderate');
-    const spacing = typesettingMap[typesetting] ?? typesettingMap['moderate'];
+    const layout = cfg.get<string>('layout', 'moderate');
+    const spacing = layoutMap[layout] ?? layoutMap['moderate'];
 
     panel.webview.postMessage({
         type: 'editorLayoutChanged',
@@ -203,6 +203,6 @@ function sendLayoutConfig(panel: vscode.WebviewPanel) {
 
 function sendLineNumberConfig(panel: vscode.WebviewPanel) {
     const cfg = vscode.workspace.getConfiguration('imarkdown.editor');
-    const showLineNumbers = cfg.get<boolean>('showLineNumbers', false);
-    panel.webview.postMessage({ type: 'lineNumberConfigChanged', showLineNumbers });
+    const codeLineNumbers = cfg.get<boolean>('codeLineNumbers', false);
+    panel.webview.postMessage({ type: 'lineNumberConfigChanged', codeLineNumbers });
 }

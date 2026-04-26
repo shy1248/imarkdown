@@ -26,15 +26,15 @@ export function getHtmlForWebview(
     const vscodeLineHeight = editorConfig.get<number>('lineHeight', 0);
     const lineHeight = vscodeLineHeight > 0 ? vscodeLineHeight : 1.5;
 
-    const typesettingMap: Record<string, { inline: string; block: string }> = {
+    const layoutMap: Record<string, { inline: string; block: string }> = {
         // inline = 段落/列表项间距（正文节奏）
         // block  = 块级元素间距（pre、blockquote、figure、math、hr、table、h3）
         compact:  { inline: '0.3em', block: '0.5em'  },
         moderate: { inline: '0.5em', block: '0.85em' },
         loose:    { inline: '0.8em', block: '1.3em'  },
     };
-    const typesetting = imarkdownConfig.get<string>('typesetting', 'moderate');
-    const spacing = typesettingMap[typesetting] ?? typesettingMap['moderate'];
+    const layout = imarkdownConfig.get<string>('layout', 'moderate');
+    const spacing = layoutMap[layout] ?? layoutMap['moderate'];
     const blockS  = spacing.block;    // blockquote、pre、figure、math、hr、table、h3
     let minWidth = imarkdownConfig.get<number>('minWidth', 600);
     let padding = imarkdownConfig.get<number>('padding', 50);

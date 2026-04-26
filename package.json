@@ -2,7 +2,7 @@
     "name": "imarkdown-editor",
     "displayName": "iMarkdown - Markdown WYSIWYG Editor",
     "description": "Markdown editor with WYSIWYG mode.",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "publisher": "shy1248",
     "repository": {
         "type": "git",
@@ -162,7 +162,7 @@
                     "description": "%Left and right padding of the editor content area (px).%",
                     "markdownDescription": "%Left and right padding of the editor content area in pixels (50–100).%"
                 },
-                "imarkdown.editor.typesetting": {
+                "imarkdown.editor.layout": {
                     "type": "string",
                     "enum": [
                         "compact",
@@ -170,15 +170,15 @@
                         "loose"
                     ],
                     "default": "moderate",
-                    "description": "%Typesetting density of the editor content.%",
-                    "markdownDescription": "%Typesetting density of the editor content.%",
+                    "description": "%Layout density of the editor content.%",
+                    "markdownDescription": "%layout density of the editor content.%",
                     "enumDescriptions": [
-                        "%Compact typesetting (0.1em node spacing).%",
-                        "%Moderate typesetting (0.3em node spacing).%",
-                        "%Loose typesetting (0.5em node spacing).%"
+                        "%Compact layout (0.1em node spacing).%",
+                        "%Moderate layout (0.3em node spacing).%",
+                        "%Loose layout (0.5em node spacing).%"
                     ]
                 },
-                "imarkdown.editor.showLineNumbers": {
+                "imarkdown.editor.codeLineNumbers": {
                     "type": "boolean",
                     "default": false,
                     "description": "%Show line numbers in code blocks.%",

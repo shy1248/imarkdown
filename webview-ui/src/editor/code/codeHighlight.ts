@@ -322,7 +322,7 @@ function createDecorations(doc: ProseMirrorNode): DecorationSet {
     const loadedLangs = highlighter.getLoadedLanguages();
     const loadedThemes = highlighter.getLoadedThemes();
     const themeName = loadedThemes[0] || 'github-dark';
-    const showLineNumbers = document.body.classList.contains('show-line-numbers');
+    const codeLineNumbers = document.body.classList.contains('show-line-numbers');
     doc.descendants((node, pos) => {
         if (node.type.name !== 'codeBlock') return;
 
@@ -330,7 +330,7 @@ function createDecorations(doc: ProseMirrorNode): DecorationSet {
         language = langRegistry.resolve(language) || 'javascript';
 
         // 为所有代码块添加逐行内联行号组件
-        if (showLineNumbers) {
+        if (codeLineNumbers) {
             const text = node.textContent;
             // 按换行符拆分，计算每行在节点内的起始偏移。
             // pos + 1 是文本内容的起始位置（跳过 codeBlock 开放 token）。

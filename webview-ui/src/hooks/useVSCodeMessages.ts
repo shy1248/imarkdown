@@ -280,7 +280,7 @@ export function useVSCodeMessages({
             }),
 
             onMessage('lineNumberConfigChanged', (msg) => {
-                const show = !!msg.showLineNumbers;
+                const show = !!msg.codeLineNumbers;
                 document.body.classList.toggle('show-line-numbers', show);
                 const ed = editorRef.current;
                 if (ed && !ed.isDestroyed && ed.view) {

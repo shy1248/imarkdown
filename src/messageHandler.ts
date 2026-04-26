@@ -61,10 +61,10 @@ export function registerMessageHandler(ctx: MessageContext): void {
                     // 在此发送行号配置（editorProvider 中的早期调用之外），
                     // 确保 webview 消息处理器完全注册后也能正确应用该设置，
                     // 即使 VS Code 在重启时恢复已打开的编辑器。
-                    const showLineNumbers = vscode.workspace
+                    const codeLineNumbers = vscode.workspace
                         .getConfiguration('imarkdown.editor')
-                        .get<boolean>('showLineNumbers', false);
-                    ctx.webviewPanel.webview.postMessage({ type: 'lineNumberConfigChanged', showLineNumbers });
+                        .get<boolean>('codeLineNumbers', false);
+                    ctx.webviewPanel.webview.postMessage({ type: 'lineNumberConfigChanged', codeLineNumbers });
                 });
                 return;
 
