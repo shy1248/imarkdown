@@ -40,8 +40,46 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
         // 非首次加载时保存当前光标位置，供 setContent 后恢复
         const isInitial = isInitialLoadRef.current;
         const savedFrom = !isInitial ? ed.state.selection.from : null;
+
+        // 保存当前折叠状态：记录所有 collapsed heading 的层级和文本
+        const collapsedHeadings: { level: number; text: string }[] = [];
+        if (!isInitial) {
+            ed.state.doc.descendants((node) => {
+                if (node.type.name === 'heading' && node.attrs.collapsed) {
+                    collapsedHeadings.push({ level: node.attrs.level, text: node.textContent });
+                }
+            });
+        }
+
         ed.commands.setContent(text, { emitUpdate: false });
         migrateMathStrings(ed);
+
+        // 恢复折叠状态：匹配层级+文本一致的标题，重新折叠
+        if (collapsedHeadings.length > 0) {
+            const tr = ed.state.tr;
+            let restored = 0;
+            ed.state.doc.descendants((node, pos) => {
+                if (restored >= collapsedHeadings.length) return;
+                if (node.type.name !== 'heading') return;
+                if (node.attrs.collapsed) return;
+                const match = collapsedHeadings.find(
+                    (h) => h.level === node.attrs.level && h.text === node.textContent,
+                );
+                if (match) {
+                    tr.setNodeMarkup(pos, undefined, {
+                        ...node.attrs,
+                        collapsed: true,
+                    });
+                    restored++;
+                }
+            });
+            if (tr.steps.length > 0) {
+                tr.setMeta('headingFoldToggle', true);
+                tr.setMeta('addToHistory', false);
+                ed.view.dispatch(tr);
+            }
+        }
+
         // 非首次加载时恢复光标位置
         if (savedFrom != null) {
             const safePos = Math.min(savedFrom, ed.state.doc.content.size);
