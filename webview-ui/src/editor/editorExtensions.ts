@@ -413,6 +413,56 @@ export function createExtensions(config: ExtensionsConfig): { extensions: any[] 
         Markdown.configure({
             transformCopiedText: false,
         }),
+        // ── 纯文本复制：拦截 copy 事件，仅设置 text/plain ────────────────
+        Extension.create({
+            name: 'plainTextCopy',
+            addProseMirrorPlugins() {
+                return [
+                    new Plugin({
+                        key: new PluginKey('plainTextCopy'),
+                        props: {
+                            handleDOMEvents: {
+                                copy: (view, event) => {
+                                    const { selection, doc } = view.state;
+                                    const { from, to, empty } = selection;
+                                    if (empty) return false;
+                                    const plainText = doc.textBetween(from, to, '\n', '\n');
+                                    if (plainText) {
+                                        event.clipboardData?.setData('text/plain', plainText);
+                                    }
+                                    event.preventDefault();
+                                    return true;
+                                },
+                            },
+                        },
+                    }),
+                ];
+            },
+        }),
+        // ── 纯文本粘贴：提取剪贴板纯文本，以纯文本插入 ──────────────────
+        // 仅处理含文本的剪贴板；纯图片剪贴板由 resizableImage 的 imagePaste 插件处理。
+        Extension.create({
+            name: 'plainTextPaste',
+            addProseMirrorPlugins() {
+                return [
+                    new Plugin({
+                        key: new PluginKey('plainTextPaste'),
+                        props: {
+                            handlePaste(view, event) {
+                                const plainText = event.clipboardData?.getData('text/plain');
+                                if (!plainText) return false;
+                                event.preventDefault();
+                                const { from, to } = view.state.selection;
+                                const tr = view.state.tr;
+                                tr.replaceWith(from, to, view.state.schema.text(plainText));
+                                view.dispatch(tr);
+                                return true;
+                            },
+                        },
+                    }),
+                ];
+            },
+        }),
     ];
     return { extensions };
 }

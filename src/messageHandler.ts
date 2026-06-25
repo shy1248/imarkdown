@@ -68,10 +68,6 @@ export function registerMessageHandler(ctx: MessageContext): void {
                 });
                 return;
 
-            case 'plainPaste':
-                vscode.commands.executeCommand('editor.action.clipboardPasteAction');
-                return;
-
             case 'requestDocumentRefresh': {
                 // webview 重新获得焦点（窗口或标签）并请求最新文件内容，
                 // 以防文件被外部修改。仅在磁盘内容与最后发送内容不同时才发送。

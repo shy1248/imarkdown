@@ -37,12 +37,19 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
 
     const setEditorContent = useCallback((ed: Editor, text: string) => {
         suppressRef.current = true;
+        // 非首次加载时保存当前光标位置，供 setContent 后恢复
+        const isInitial = isInitialLoadRef.current;
+        const savedFrom = !isInitial ? ed.state.selection.from : null;
         ed.commands.setContent(text, { emitUpdate: false });
         migrateMathStrings(ed);
+        // 非首次加载时恢复光标位置
+        if (savedFrom != null) {
+            const safePos = Math.min(savedFrom, ed.state.doc.content.size);
+            ed.commands.setTextSelection(safePos);
+        }
         suppressRef.current = false;
         lastMarkdownRef.current = text;
 
-        const isInitial = isInitialLoadRef.current;
         isInitialLoadRef.current = false;
 
         requestAnimationFrame(() => {
@@ -52,7 +59,6 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
                 ed.view.dispatch(tr);
             }
             if (isInitial && ed.view && !ed.isDestroyed) {
-                ed.commands.focus('start');
                 document.body.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
             }
             // 标记内容已加载，允许显示占位符（防止启动时闪烁）

@@ -59,7 +59,7 @@ export const CustomCodeBlock = CodeBlock.extend({
 
         // 如果有语言信息，插入一个真实的 DOM 元素作为语言标签
         if (language) {
-            return ['pre', preAttrs, ['div', { class: 'code-language-label', tabindex: -1 }, language], ['code', codeAttrs, 0]];
+            return ['pre', preAttrs, ['div', { class: 'code-language-label', contenteditable: 'false', tabindex: -1 }, language], ['code', codeAttrs, 0]];
         }
 
         return ['pre', preAttrs, ['code', codeAttrs, 0]];

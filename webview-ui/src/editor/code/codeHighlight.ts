@@ -450,18 +450,6 @@ function closeDropdown() {
     }
 }
 
-/** 标签占据 <pre> 右上角区域，当鼠标坐标（clientX/Y）位于该区域内时返回 true。 */
-function isOverBadge(pre: HTMLElement, clientX: number, clientY: number): boolean {
-    const badge = pre.querySelector('.code-language-label') as HTMLElement | null;
-    if (!badge) return false;
-    const rect = badge.getBoundingClientRect();
-    // 稍微扩大点击区域以提升易用性
-    return clientX >= rect.left - 4 &&
-        clientX <= rect.right + 4 &&
-        clientY >= rect.top - 4 &&
-        clientY <= rect.bottom + 4;
-}
-
 function openLanguageDropdown(
     anchorEl: HTMLElement,
     currentLang: string,
@@ -577,7 +565,7 @@ function openLanguageDropdown(
     const handleOutside = (e: MouseEvent) => {
         if (dropdown.contains(e.target as Node)) return;
         // 若点击的是同一 <pre> 的标签，让插件的点击切换逻辑处理
-        if (activeDropdownPre && isOverBadge(activeDropdownPre, e.clientX, e.clientY)) return;
+        if (activeDropdownPre && (e.target as HTMLElement).closest('.code-language-label')) return;
         closeDropdown();
         document.removeEventListener('mousedown', handleOutside, true);
     };
@@ -600,12 +588,17 @@ export const CodeBlockLanguageSelector = Extension.create({
                 key: new PluginKey('codeBlockLanguageSelector'),
                 props: {
                     handleDOMEvents: {
-                        click: (view, event) => {
+                        // mousedown 阶段拦截：阻止 PM 将光标移动到代码块内。
+                        // 若使用 click 事件，ProseMirror 已在 mousedown 时放置了光标，
+                        // 到 click 阶段再 preventDefault 已无法撤回，导致光标一闪而过。
+                        mousedown: (view, event) => {
                             const target = event.target as HTMLElement;
-                            const pre = target.closest('pre[data-language]') as HTMLElement | null;
+                            // 仅当点击目标是标签本身（或其子元素）时才响应，
+                            // 确保只在光标为手指样式时才能触发。
+                            const badge = target.closest('.code-language-label') as HTMLElement | null;
+                            if (!badge) return false;
+                            const pre = badge.closest('pre[data-language]') as HTMLElement | null;
                             if (!pre) return false;
-
-                            if (!isOverBadge(pre, event.clientX, event.clientY)) return false;
 
                             event.preventDefault();
                             event.stopPropagation();

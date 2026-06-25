@@ -55,6 +55,8 @@ export function useVSCodeMessages({
                     lastMarkdownRef.current = text;
                     return;
                 }
+                // 非首次加载时内容未变化则跳过，避免不必要的重新渲染导致光标跳动
+                if (!isInitialLoadRef.current && text === lastMarkdownRef.current) return;
                 // 若高亮器未就绪，延迟渲染直到就绪
                 if (!getHighlighter()) {
                     lastMarkdownRef.current = text;
@@ -257,6 +259,13 @@ export function useVSCodeMessages({
                     ? doc.textBetween(0, doc.content.size, '\n', '\n')
                     : doc.textBetween(from, to, '\n', '\n');
                 postMessage({ type: 'copyPlainTextResponse', text });
+            }),
+
+            onMessage('pasteMarkdown', (msg) => {
+                const editor = editorRef.current;
+                if (!editor || !msg.text) return;
+                const { from, to } = editor.state.selection;
+                editor.chain().focus().deleteRange({ from, to }).insertContent(msg.text).run();
             }),
 
             onMessage('scrollToHeading', (msg) => {

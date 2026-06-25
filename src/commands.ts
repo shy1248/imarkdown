@@ -61,7 +61,7 @@ export function registerCommands(context: vscode.ExtensionContext) {
         }
     });
 
-    register('imarkdown.copyAsPlainText', async (uri?: vscode.Uri, ...args: any[]) => {
+        register('imarkdown.pasteAsMarkdown', async (uri?: vscode.Uri, ...args: any[]) => {
         const documentUri = resolveDocumentUri(uri, ...args);
         const panel = (documentUri && panelRegistry.get(documentUri.toString()))
             || extensionState.activeWebviewPanel;
@@ -70,10 +70,9 @@ export function registerCommands(context: vscode.ExtensionContext) {
             vscode.window.showWarningMessage(i18n.t('noActiveEditor'));
             return;
         }
-        const plainText = await requestPlainTextFromWebview(panel);
-        if (plainText) {
-            await vscode.env.clipboard.writeText(plainText);
-            vscode.window.showInformationMessage(i18n.t('copiedAsPlainText'));
+        const clipboardText = await vscode.env.clipboard.readText();
+        if (clipboardText) {
+            panel.webview.postMessage({ type: 'pasteMarkdown', text: clipboardText });
         }
     });
 

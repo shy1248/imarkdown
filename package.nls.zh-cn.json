@@ -4,6 +4,7 @@
     "Open in Text Editor": "使用纯文本模式打开",
     "Export as HTML": "导出为 Html 文档",
     "Copy as Markdown": "复制为 Markdown 文本",
+    "Paste as Markdown Text": "粘贴为 Markdown 文本",
     "Copy as Plain Text": "复制为纯文本",
     "Go to Heading": "跳转到标题",
     "Add Selection to Next Find Match": "将选区扩展到下一个匹配项",
