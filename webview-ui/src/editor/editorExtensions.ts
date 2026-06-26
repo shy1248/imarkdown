@@ -153,6 +153,44 @@ export function createExtensions(config: ExtensionsConfig): { extensions: any[] 
             horizontalRule: false,
             heading: false,
         }),
+        // ── 自定义 Enter 行为：普通段落中 Enter → 视觉换行 ──────────────
+        // 仅在 paragraph 内拦截 Enter 并插入硬换行（<br>），
+        // 列表/引用块/代码块等保留默认行为。
+        // 例外：若光标前已有两个连续硬换行（即视觉上已有两个空白行），
+        // 则删除这两个空白 <br> 并创建新段落。
+        Extension.create({
+            name: 'customEnter',
+            addKeyboardShortcuts() {
+                return {
+                    Enter: () => {
+                        const { selection } = this.editor.state;
+                        const $from = selection.$from;
+                        if ($from.parent.type.name !== 'paragraph') {
+                            return false;
+                        }
+
+                        // 检测光标前是否有两个连续硬换行 → 删除并创建新段落
+                        const nodeBefore = $from.nodeBefore;
+                        if (nodeBefore?.type.name === 'hardBreak') {
+                            const beforePos = $from.pos - nodeBefore.nodeSize;
+                            const resolved = this.editor.state.doc.resolve(beforePos);
+                            if (resolved.nodeBefore?.type.name === 'hardBreak') {
+                                const firstBreakPos = beforePos - resolved.nodeBefore.nodeSize;
+                                this.editor
+                                    .chain()
+                                    .deleteRange({ from: firstBreakPos, to: $from.pos })
+                                    .insertContentAt(firstBreakPos, { type: 'paragraph' })
+                                    .focus(firstBreakPos + 1)
+                                    .run();
+                                return true;
+                            }
+                        }
+
+                        return this.editor.commands.setHardBreak();
+                    },
+                };
+            },
+        }),
         // ── 自定义标题：支持折叠 ────────────────────────────────────────
         // 在原生 Heading 基础上增加 collapsed 属性，
         // 用于标题折叠功能（通过标题右侧按钮切换）。

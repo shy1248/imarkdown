@@ -292,7 +292,8 @@ function handlePasteImage(ctx: MessageContext, dataUrl: string): void {
     const match = dataUrl.match(/^data:image\/([\w+]+);base64,(.+)$/);
     if (!match) return;
 
-    const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+    const rawExt = match[1] === 'jpeg' ? 'jpg' : match[1];
+    const ext = rawExt.split('+')[0];  // "svg+xml" → "svg"
     const buffer = Buffer.from(match[2], 'base64');
 
     const docDir = path.dirname(ctx.document.uri.fsPath);
