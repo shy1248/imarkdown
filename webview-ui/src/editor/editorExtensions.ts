@@ -153,9 +153,10 @@ export function createExtensions(config: ExtensionsConfig): { extensions: any[] 
             horizontalRule: false,
             heading: false,
         }),
-        // ── 自定义 Enter 行为：普通段落中 Enter → 视觉换行 ──────────────
-        // 仅在 paragraph 内拦截 Enter 并插入硬换行（<br>），
-        // 列表/引用块/代码块等保留默认行为。
+        // ── 自定义 Enter 行为：顶层段落中 Enter → 视觉换行 ──────────────
+        // 仅在顶层 paragraph（depth===1，直接位于 doc 下）内拦截 Enter
+        // 并插入硬换行（<br>）。
+        // 列表项/引用块/代码块等内部的 paragraph 保留默认行为（如 splitListItem）。
         // 例外：若光标前已有两个连续硬换行（即视觉上已有两个空白行），
         // 则删除这两个空白 <br> 并创建新段落。
         Extension.create({
@@ -165,7 +166,8 @@ export function createExtensions(config: ExtensionsConfig): { extensions: any[] 
                     Enter: () => {
                         const { selection } = this.editor.state;
                         const $from = selection.$from;
-                        if ($from.parent.type.name !== 'paragraph') {
+                        // 仅处理顶层段落：depth===1 表示 paragraph 直接位于 doc 下
+                        if ($from.parent.type.name !== 'paragraph' || $from.depth > 1) {
                             return false;
                         }
 
