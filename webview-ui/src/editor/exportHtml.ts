@@ -330,6 +330,10 @@ function removeEditorUI(clone: HTMLElement): void {
     clone.querySelectorAll('.link-inline-edit, .image-inline-edit, .math-inline-edit').forEach(el => el.remove());
     clone.querySelectorAll('.resize-handle').forEach(el => el.remove());
     clone.querySelectorAll('.table-controls, .add-row-btn, .add-col-btn, .column-resize-handle').forEach(el => el.remove());
+    // 顶层节点左侧的悬浮拖拽手柄（“增加段落”+“拖动排序”按钮）。
+    // 导出的静态 HTML 不可编辑，因此这些交互控件必须移除；
+    // 同时清理手柄容器，避免其绝对定位样式影响导出布局。
+    clone.querySelectorAll('.drag-handle, .node-action-buttons, .node-action-btn').forEach(el => el.remove());
     // 标题折叠按钮（导出的静态 HTML 不需要交互）
     // 行号保留（与编辑器一致）
     // 清理行号 span 上的编辑器专用属性
