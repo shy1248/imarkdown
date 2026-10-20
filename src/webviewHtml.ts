@@ -138,6 +138,30 @@ export function getHtmlForWebview(
             e.stopImmediatePropagation();
             window.__imarkdownTabHandler(e.shiftKey);
         }, true /* capture */);
+
+        // 在捕获阶段拦截 Ctrl/Cmd+A，防止 VS Code webview 宿主或浏览器原生
+        // “全选”只改变 DOM 选区而不更新 ProseMirror 的编辑器状态
+        // （表现为右键后高亮消失、Delete/Backspace 无法删除内容）。
+        // 直接调用编辑器注册的处理函数，将选区设置为与手动从文档头部
+        // 选择到文档尾部完全一致的文本选区。
+        document.addEventListener('keydown', function(e) {
+            if (e.isComposing) return;
+            if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+            if (e.key !== 'a' && e.key !== 'A') return;
+            var editor = document.querySelector('.ProseMirror');
+            if (!editor) return;
+            var active = document.activeElement;
+            if (!active) return;
+            var tag = active.tagName;
+            // 输入控件内的全选保持原生行为（如搜索框、链接/公式编辑面板）
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            // 嵌套的可编辑区域（非编辑器根节点）保持原生行为
+            if (active !== editor && active.isContentEditable) return;
+            if (typeof window.__imarkdownSelectAllHandler !== 'function') return;
+            if (!window.__imarkdownSelectAllHandler()) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }, true /* capture */);
     </script>
     <script nonce="${nonce}" type="module" src="${webviewJsUri}"></script>
 </body>

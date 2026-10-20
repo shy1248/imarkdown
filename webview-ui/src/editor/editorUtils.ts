@@ -1,4 +1,7 @@
 import { Editor } from '@tiptap/core';
+import { Fragment } from '@tiptap/pm/model';
+import type { Node as PMNode } from '@tiptap/pm/model';
+import { CellSelection, TableMap } from '@tiptap/pm/tables';
 import { postMessage } from '../vscode';
 
 /**
@@ -28,6 +31,121 @@ export function updateImageUrls(editorView: any): void {
         const resolved = resolveImageUrl(current);
         if (resolved && resolved !== img.src) img.src = resolved;
     });
+}
+
+/**
+ * 将表格单元格选区（CellSelection）序列化为“仅包含所选单元格”的 Markdown 表格。
+ *
+ * 直接对 CellSelection 做 `doc.slice(from, to)` 只会得到选区末尾的单个单元格，
+ * 因此这里按 TableMap 重建选中区域的网格：
+ *   • 选中区域内的单元格内容保持不变；
+ *   • 合并单元格被展平，被覆盖的位置输出空单元格占位；
+ *   • 无法处理时返回空字符串，由调用方回退到普通序列化。
+ */
+export function serializeCellSelectionAsMarkdown(editor: Editor, selection: any): string {
+    const serializer = (editor.storage as any)?.markdown?.serializer;
+    const $anchor = selection?.$anchorCell;
+    if (!serializer || !$anchor) return '';
+
+    // 找到选区所属的表格节点及其内容起始位置
+    let table: PMNode | null = null;
+    let tableStart = -1;
+    for (let d = $anchor.depth; d > 0; d--) {
+        if ($anchor.node(d).type.name === 'table') {
+            table = $anchor.node(d);
+            tableStart = $anchor.start(d);
+            break;
+        }
+    }
+    if (!table) return '';
+
+    const map = TableMap.get(table);
+    const selectedOffsets = new Set<number>();
+    selection.forEachCell((_node: PMNode, pos: number) => {
+        selectedOffsets.add(pos - tableStart);
+    });
+    if (selectedOffsets.size === 0) return '';
+
+    // 记录每个单元格在网格中的锚点（首次出现的位置）
+    const anchorPositions = new Map<number, { row: number; col: number }>();
+    for (let r = 0; r < map.height; r++) {
+        for (let c = 0; c < map.width; c++) {
+            const offset = map.map[r * map.width + c];
+            if (!anchorPositions.has(offset)) anchorPositions.set(offset, { row: r, col: c });
+        }
+    }
+
+    // 选中单元格的矩形范围（考虑跨行/跨列）
+    let minRow = Infinity;
+    let maxRow = -1;
+    let minCol = Infinity;
+    let maxCol = -1;
+    for (const offset of selectedOffsets) {
+        const anchor = anchorPositions.get(offset);
+        if (!anchor) continue;
+        const cell = table.nodeAt(offset);
+        const rowspan = cell?.attrs?.rowspan ?? 1;
+        const colspan = cell?.attrs?.colspan ?? 1;
+        minRow = Math.min(minRow, anchor.row);
+        maxRow = Math.max(maxRow, anchor.row + rowspan - 1);
+        minCol = Math.min(minCol, anchor.col);
+        maxCol = Math.max(maxCol, anchor.col + colspan - 1);
+    }
+    if (maxRow < 0) return '';
+
+    const rowType = table.child(0)?.type;
+    const fallbackCellType = table.nodeAt(map.map[0])?.type;
+    if (!rowType) return '';
+
+    const rows: PMNode[] = [];
+    for (let r = minRow; r <= maxRow; r++) {
+        const cells: PMNode[] = [];
+        for (let c = minCol; c <= maxCol; c++) {
+            const offset = map.map[r * map.width + c];
+            const cell = table.nodeAt(offset);
+            const anchor = anchorPositions.get(offset);
+            const isAnchorHere = !!anchor && anchor.row === r && anchor.col === c;
+
+            if (cell && isAnchorHere) {
+                // 展平合并单元格，保证子表格是规则网格
+                cells.push(cell.type.create(
+                    { ...cell.attrs, colspan: 1, rowspan: 1 },
+                    cell.content,
+                    cell.marks,
+                ));
+            } else {
+                const empty = (cell?.type ?? fallbackCellType)?.createAndFill({
+                    colspan: 1,
+                    rowspan: 1,
+                });
+                if (empty) cells.push(empty);
+            }
+        }
+        if (cells.length) rows.push(rowType.create(null, cells));
+    }
+    if (!rows.length) return '';
+
+    const selectedTable = table.type.create(null, rows);
+    return serializer.serialize(Fragment.from(selectedTable)).trim();
+}
+
+/**
+ * 将当前选区序列化为 Markdown：
+ *   • 单元格选区（CellSelection）只输出所选单元格重建的表格；
+ *   • 其他选区按 `doc.slice` 的内容序列化（整表节点选择会得到完整表格）。
+ */
+export function serializeSelectionAsMarkdown(editor: Editor): string {
+    const { selection, doc } = editor.state;
+    if (selection.empty) return '';
+    const serializer = (editor.storage as any)?.markdown?.serializer;
+    if (!serializer) return '';
+
+    if (selection instanceof CellSelection) {
+        const selected = serializeCellSelectionAsMarkdown(editor, selection);
+        if (selected) return selected;
+    }
+
+    return serializer.serialize(doc.slice(selection.from, selection.to, true).content).trim();
 }
 
 /**

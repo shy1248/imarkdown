@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { i18n } from './utils/i18n';
-import { extensionState, panelRegistry } from './utils/extensionState';
+import { extensionState } from './utils/extensionState';
 import { IMarkdownEditorProvider } from './editorProvider';
 import { exportAsHtml } from './utils/exportUtils';
 
@@ -39,78 +39,11 @@ export function registerCommands(context: vscode.ExtensionContext) {
         }
     });
 
-    register('imarkdown.copyAsMarkdown', async (uri?: vscode.Uri, ...args: any[]) => {
-        // 从命令参数（由 webview/右键菜单传入）解析文档 URI，
-        // 若无则回退到当前激活文档。
-        const documentUri = resolveDocumentUri(uri, ...args);
-
-        // 优先从注册表获取面板（跨焦点切换持久化），
-        // 这样即使 webview 右键菜单暂时抢占焦点并清除
-        // `extensionState.activeWebviewPanel` 时，命令仍能正常工作。
-        const panel = (documentUri && panelRegistry.get(documentUri.toString()))
-            || extensionState.activeWebviewPanel;
-
-        if (!panel) {
-            vscode.window.showWarningMessage(i18n.t('noActiveEditor'));
-            return;
-        }
-        const markdown = await requestMarkdownFromWebview(panel);
-        if (markdown) {
-            await vscode.env.clipboard.writeText(markdown);
-            vscode.window.showInformationMessage(i18n.t('copiedAsMarkdown'));
-        }
-    });
-
-        register('imarkdown.pasteAsMarkdown', async (uri?: vscode.Uri, ...args: any[]) => {
-        const documentUri = resolveDocumentUri(uri, ...args);
-        const panel = (documentUri && panelRegistry.get(documentUri.toString()))
-            || extensionState.activeWebviewPanel;
-
-        if (!panel) {
-            vscode.window.showWarningMessage(i18n.t('noActiveEditor'));
-            return;
-        }
-        const clipboardText = await vscode.env.clipboard.readText();
-        if (clipboardText) {
-            panel.webview.postMessage({ type: 'pasteMarkdown', text: clipboardText });
-        }
-    });
-
     register('imarkdown.scrollToHeading', (headingId: string) => {
         const { activeWebviewPanel } = extensionState;
         if (activeWebviewPanel && headingId) {
             activeWebviewPanel.webview.postMessage({ type: 'scrollToHeading', headingId });
         }
-    });
-}
-
-/** 通过超时机制向 webview 请求 Markdown 内容。 */
-function requestMarkdownFromWebview(panel: vscode.WebviewPanel): Promise<string> {
-    return new Promise((resolve) => {
-        const timeout = setTimeout(() => { disposable.dispose(); resolve(''); }, 5000);
-        const disposable = panel.webview.onDidReceiveMessage((msg) => {
-            if (msg.type === 'copyMarkdownResponse') {
-                clearTimeout(timeout);
-                disposable.dispose();
-                resolve(msg.markdown as string || '');
-            }
-        });
-        panel.webview.postMessage({ type: 'requestCopyMarkdown' });
-    });
-}
-
-/** 通过超时机制向 webview 请求选区纯文本。 */
-function requestPlainTextFromWebview(panel: vscode.WebviewPanel): Promise<string> {
-    return new Promise((resolve) => {
-        const timeout = setTimeout(() => { disposable.dispose(); resolve(''); }, 5000);
-        const disposable = panel.webview.onDidReceiveMessage((msg) => {
-            if (msg.type === 'copyPlainTextResponse') {
-                clearTimeout(timeout);
-                disposable.dispose();
-                resolve(msg.text as string || '');
-            }
-        });
-        panel.webview.postMessage({ type: 'requestCopyPlainText' });
     });
 }
 

@@ -224,50 +224,6 @@ export function useVSCodeMessages({
                 postMessage({ type: 'exportHtmlResponse', html });
             }),
 
-            onMessage('requestCopyMarkdown', () => {
-                const editor = editorRef.current;
-                let md = lastMarkdownRef.current;
-                if (editor) {
-                    const { selection, doc } = editor.state;
-                    const { from, to, empty } = selection;
-                    if (!empty) {
-                        try {
-                            const storage = editor.storage as any;
-                            const serializer = storage?.markdown?.serializer;
-                            if (serializer) {
-                                const slice = doc.slice(from, to, true);
-                                md = serializer.serialize(slice.content).trim();
-                            }
-                        } catch {
-                            // 任何错误均回退到整文档 Markdown
-                        }
-                    }
-                }
-                postMessage({ type: 'copyMarkdownResponse', markdown: md });
-            }),
-
-            onMessage('requestCopyPlainText', () => {
-                const editor = editorRef.current;
-                if (!editor) {
-                    postMessage({ type: 'copyPlainTextResponse', text: '' });
-                    return;
-                }
-                const { selection, doc } = editor.state;
-                const { from, to, empty } = selection;
-                // 选区为空时复制整篇文档纯文本
-                const text = empty
-                    ? doc.textBetween(0, doc.content.size, '\n', '\n')
-                    : doc.textBetween(from, to, '\n', '\n');
-                postMessage({ type: 'copyPlainTextResponse', text });
-            }),
-
-            onMessage('pasteMarkdown', (msg) => {
-                const editor = editorRef.current;
-                if (!editor || !msg.text) return;
-                const { from, to } = editor.state.selection;
-                editor.chain().focus().deleteRange({ from, to }).insertContent(msg.text).run();
-            }),
-
             onMessage('scrollToHeading', (msg) => {
                 if (!editorRef.current || !msg.headingId) return;
                 scrollToHeading(editorRef.current, msg.headingId);

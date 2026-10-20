@@ -36,7 +36,7 @@ import { linkInsert } from './link/linkInsert';
 import { createSearchPlugin } from '../components/SearchBar';
 import { resizableImage } from './image/resizableImage';
 import { CustomCodeBlock } from './code/codeBlock';
-import { Table, TableHeader, TableCell, TableDeleteOnBackspace } from './table/tableExtensions';
+import { Table, TableHeader, TableCell, TableDeleteOnBackspace, TableCellHardBreak } from './table/tableExtensions';
 import { LinkBoundaryGuard } from "./link/linkBoundaryGuard";
 import {
     BackslashEscape,
@@ -48,6 +48,10 @@ import {
     MarkdownLinkInputRule,
 } from './markdown/inputRules';
 import { IndentOutdent } from './indentOutdent';
+import { SelectAllDocument } from './selectAll';
+import {
+    serializeSelectionAsMarkdown,
+} from './editorUtils';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 标题折叠：装饰构建
@@ -138,6 +142,94 @@ export interface ExtensionsConfig {
     onUploadImages: (files: File[], uploadBlockPos: number) => void;
     onInsertLink: (text: string, url: string) => void;
 }
+
+// ── Markdown 复制：Ctrl+C / Ctrl+X 复制选区为 Markdown 文本 ────────────────
+// 表格单元格选区只复制所选单元格；整表节点选区复制完整表格。
+export const MarkdownCopy = Extension.create({
+    name: 'markdownCopy',
+    addProseMirrorPlugins() {
+        const editor = this.editor;
+        const writeMarkdown = (view: any, event: ClipboardEvent): boolean => {
+            if (view.state.selection.empty) return false;
+            const markdown = serializeSelectionAsMarkdown(editor);
+            if (!markdown) return false;
+            event.clipboardData?.setData('text/plain', markdown);
+            return true;
+        };
+
+        return [
+            new Plugin({
+                key: new PluginKey('markdownCopy'),
+                props: {
+                    handleDOMEvents: {
+                        copy: (view, event) => {
+                            if (!writeMarkdown(view, event)) return false;
+                            event.preventDefault();
+                            return true;
+                        },
+                        cut: (view, event) => {
+                            if (!writeMarkdown(view, event)) return false;
+                            event.preventDefault();
+                            view.dispatch(view.state.tr.deleteSelection());
+                            return true;
+                        },
+                    },
+                },
+            }),
+        ];
+    },
+});
+
+// ── Markdown 粘贴：Ctrl+V 将剪贴板文本按 Markdown 解析后插入 ───────────────
+// 代码块内保持纯文本粘贴；纯图片剪贴板由 resizableImage 的 imagePaste 插件处理。
+export const MarkdownPaste = Extension.create({
+    name: 'markdownPaste',
+    addProseMirrorPlugins() {
+        const editor = this.editor;
+        const storage = editor.storage as any;
+        return [
+            new Plugin({
+                key: new PluginKey('markdownPaste'),
+                props: {
+                    handlePaste(view, event) {
+                        const plainText = event.clipboardData?.getData('text/plain');
+                        if (!plainText) return false;
+                        event.preventDefault();
+                        const { from, to, $from } = view.state.selection;
+
+                        let inCodeBlock = false;
+                        for (let d = $from.depth; d > 0; d--) {
+                            if ($from.node(d).type.name === 'codeBlock') {
+                                inCodeBlock = true;
+                                break;
+                            }
+                        }
+
+                        const parser = storage?.markdown?.parser;
+                        if (!inCodeBlock && parser) {
+                            try {
+                                const html = parser.parse(plainText);
+                                editor.chain()
+                                    .focus()
+                                    .deleteRange({ from, to })
+                                    .insertContent(html)
+                                    .run();
+                                return true;
+                            } catch {
+                                // 解析失败时回退为纯文本插入
+                            }
+                        }
+
+                        const tr = view.state.tr;
+                        tr.replaceWith(from, to, view.state.schema.text(plainText));
+                        view.dispatch(tr);
+                        return true;
+                    },
+                },
+            }),
+        ];
+    },
+});
 
 export function createExtensions(config: ExtensionsConfig): { extensions: any[] } {
     const extensions = [
@@ -271,6 +363,7 @@ export function createExtensions(config: ExtensionsConfig): { extensions: any[] 
         TableCell,
         TableControls,
         TableDeleteOnBackspace,
+        TableCellHardBreak,
         linkInsert({ onInsert: config.onInsertLink }),
         imageUpload({ onUpload: config.onUploadImages }),
         resizableImage({
@@ -286,6 +379,7 @@ export function createExtensions(config: ExtensionsConfig): { extensions: any[] 
         slashAction(config.slashCallbacks),
         createPathCompletionExtension(config.pathCompletionCallbacks),
         IndentOutdent,
+        SelectAllDocument,
         // ── 自定义 HorizontalRule 扩展 ──────────────────────────────────────
         // 相对于 StarterKit 内置 HorizontalRule 的改动：
         //   1. atom: true — 使 DragHandle 正确计算拖拽范围
@@ -453,56 +547,7 @@ export function createExtensions(config: ExtensionsConfig): { extensions: any[] 
         Markdown.configure({
             transformCopiedText: false,
         }),
-        // ── 纯文本复制：拦截 copy 事件，仅设置 text/plain ────────────────
-        Extension.create({
-            name: 'plainTextCopy',
-            addProseMirrorPlugins() {
-                return [
-                    new Plugin({
-                        key: new PluginKey('plainTextCopy'),
-                        props: {
-                            handleDOMEvents: {
-                                copy: (view, event) => {
-                                    const { selection, doc } = view.state;
-                                    const { from, to, empty } = selection;
-                                    if (empty) return false;
-                                    const plainText = doc.textBetween(from, to, '\n', '\n');
-                                    if (plainText) {
-                                        event.clipboardData?.setData('text/plain', plainText);
-                                    }
-                                    event.preventDefault();
-                                    return true;
-                                },
-                            },
-                        },
-                    }),
-                ];
-            },
-        }),
-        // ── 纯文本粘贴：提取剪贴板纯文本，以纯文本插入 ──────────────────
-        // 仅处理含文本的剪贴板；纯图片剪贴板由 resizableImage 的 imagePaste 插件处理。
-        Extension.create({
-            name: 'plainTextPaste',
-            addProseMirrorPlugins() {
-                return [
-                    new Plugin({
-                        key: new PluginKey('plainTextPaste'),
-                        props: {
-                            handlePaste(view, event) {
-                                const plainText = event.clipboardData?.getData('text/plain');
-                                if (!plainText) return false;
-                                event.preventDefault();
-                                const { from, to } = view.state.selection;
-                                const tr = view.state.tr;
-                                tr.replaceWith(from, to, view.state.schema.text(plainText));
-                                view.dispatch(tr);
-                                return true;
-                            },
-                        },
-                    }),
-                ];
-            },
-        }),
-    ];
-    return { extensions };
+        MarkdownCopy,
+        MarkdownPaste,
+    ];    return { extensions };
 }

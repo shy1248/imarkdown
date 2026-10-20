@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { extensionState, setState, clearState, panelRegistry, normalizeEol } from './utils/extensionState';
+import { extensionState, setState, clearState, normalizeEol } from './utils/extensionState';
 import { getThemeKind, getVSCodeThemeForShiki } from './utils/themeUtils';
 import { getHtmlForWebview } from './webviewHtml';
 import { registerMessageHandler } from './messageHandler';
@@ -81,13 +81,10 @@ export class IMarkdownEditorProvider implements vscode.CustomTextEditorProvider 
 
         webviewPanel.onDidDispose(() => {
             if (extensionState.activeWebviewPanel === webviewPanel) clearState();
-            panelRegistry.delete(document.uri.toString());
             documentSavedSub.dispose();
             configChangedSub.dispose();
             themeChangedSub.dispose();
         });
-
-        panelRegistry.set(document.uri.toString(), webviewPanel);
 
         // --- 消息处理 ---
 

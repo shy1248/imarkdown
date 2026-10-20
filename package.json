@@ -2,7 +2,7 @@
     "name": "imarkdown-editor",
     "displayName": "iMarkdown - Markdown WYSIWYG Editor",
     "description": "Markdown editor with WYSIWYG mode.",
-    "version": "1.0.14",
+    "version": "1.0.15",
     "publisher": "shy1248",
     "repository": {
         "type": "git",
@@ -76,14 +76,6 @@
                 "title": "%Export as HTML%"
             },
             {
-                "command": "imarkdown.copyAsMarkdown",
-                "title": "%Copy as Markdown%"
-            },
-            {
-                "command": "imarkdown.pasteAsMarkdown",
-                "title": "%Paste as Markdown Text%"
-            },
-            {
                 "command": "imarkdown.scrollToHeading",
                 "title": "%Go to Heading%"
             }
@@ -109,31 +101,11 @@
                     "title": "%Export as HTML%",
                     "when": "imarkdown.editorIsActive",
                     "group": "export@1"
-                },
-                {
-                    "command": "imarkdown.copyAsMarkdown",
-                    "title": "%Copy as Markdown%",
-                    "when": "imarkdown.editorIsActive",
-                    "group": "export@2"
-                },
-                {
-                    "command": "imarkdown.pasteAsMarkdown",
-                    "title": "%Paste as Markdown Text%",
-                    "when": "imarkdown.editorIsActive",
-                    "group": "export@2"
                 }
             ],
             "commandPalette": [
                 {
                     "command": "imarkdown.exportHTML",
-                    "when": "imarkdown.editorIsActive"
-                },
-                {
-                    "command": "imarkdown.copyAsMarkdown",
-                    "when": "imarkdown.editorIsActive"
-                },
-                {
-                    "command": "imarkdown.pasteAsMarkdown",
                     "when": "imarkdown.editorIsActive"
                 },
                 {
