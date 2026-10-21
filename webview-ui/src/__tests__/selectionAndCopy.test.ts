@@ -468,6 +468,30 @@ describe('Ctrl+C / Ctrl+V（Markdown 格式）', () => {
         expect((editor.storage as any).markdown.getMarkdown().trim()).toBe(subset);
     });
 
+    it('粘贴包含空行的代码块时保留完整代码块内容', () => {
+        editor = makeEditor('');
+        editor.commands.setTextSelection(1);
+
+        const md = '```plaintext\nAAAA\n\n\nBBBB\n```';
+        const { event } = clipboardEvent('paste', { text: md });
+        editor.view.dom.dispatchEvent(event);
+
+        expect((editor.storage as any).markdown.getMarkdown().trim()).toBe(md);
+    });
+
+    it('在段落中粘贴块级 Markdown 时保持块级结构', () => {
+        editor = makeEditor('abc');
+        editor.commands.setTextSelection(3);
+
+        const { event } = clipboardEvent('paste', { text: '## 标题\n\n- a' });
+        editor.view.dom.dispatchEvent(event);
+
+        const md = (editor.storage as any).markdown.getMarkdown();
+        expect(md).toContain('## 标题');
+        expect(md).toContain('- a');
+        expect(md).not.toContain('abc## ');
+    });
+
     it('代码块内粘贴保持纯文本', () => {
         editor = makeEditor('```\n\n```');
         const codePos = editor.state.doc.child(0).nodeSize;
