@@ -2,7 +2,7 @@
     "name": "imarkdown-editor",
     "displayName": "iMarkdown - Markdown WYSIWYG Editor",
     "description": "Markdown editor with WYSIWYG mode.",
-    "version": "1.0.16",
+    "version": "1.0.17",
     "publisher": "shy1248",
     "repository": {
         "type": "git",
@@ -93,13 +93,13 @@
                 {
                     "command": "imarkdown.openDefaultEditor",
                     "title": "%Open in Text Editor%",
-                    "when": "imarkdown.editorIsActive",
+                    "when": "imarkdown.editorIsActive && !imarkdown.hasSelection",
                     "group": "navigation"
                 },
                 {
                     "command": "imarkdown.exportHTML",
                     "title": "%Export as HTML%",
-                    "when": "imarkdown.editorIsActive",
+                    "when": "imarkdown.editorIsActive && !imarkdown.hasSelection",
                     "group": "export@1"
                 }
             ],

@@ -9,6 +9,7 @@ export { extensionState, outlineProvider } from './utils/extensionState';
 export function activate(context: vscode.ExtensionContext) {
     i18n.changeLanguage(vscode.env.language);
     vscode.commands.executeCommand('setContext', 'imarkdown.editorIsActive', false);
+    vscode.commands.executeCommand('setContext', 'imarkdown.hasSelection', false);
     context.subscriptions.push(IMarkdownEditorProvider.register(context));
     context.subscriptions.push(initOutlineProvider());
     registerCommands(context);

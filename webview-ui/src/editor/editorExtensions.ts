@@ -21,7 +21,6 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { Markdown } from 'tiptap-markdown';
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
-import { DOMParser as PMDOMParser, Slice as PMSlice } from '@tiptap/pm/model';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { NodeSelection } from '@tiptap/pm/state';
 
@@ -51,6 +50,7 @@ import {
 import { IndentOutdent } from './indentOutdent';
 import { SelectAllDocument } from './selectAll';
 import {
+    insertMarkdownText,
     serializeSelectionAsMarkdown,
 } from './editorUtils';
 
@@ -187,71 +187,15 @@ export const MarkdownPaste = Extension.create({
     name: 'markdownPaste',
     addProseMirrorPlugins() {
         const editor = this.editor;
-        const storage = editor.storage as any;
         return [
             new Plugin({
                 key: new PluginKey('markdownPaste'),
                 props: {
-                    handlePaste(view, event) {
+                    handlePaste(_view, event) {
                         const plainText = event.clipboardData?.getData('text/plain');
                         if (!plainText) return false;
                         event.preventDefault();
-                        const { from, to, $from } = view.state.selection;
-
-                        let inCodeBlock = false;
-                        for (let d = $from.depth; d > 0; d--) {
-                            if ($from.node(d).type.name === 'codeBlock') {
-                                inCodeBlock = true;
-                                break;
-                            }
-                        }
-
-                        const parser = storage?.markdown?.parser;
-                        if (!inCodeBlock && parser) {
-                            try {
-                                // 注意：不能把 HTML 字符串交给 insertContent——tiptap-markdown
-                                // 会重写 insertContentAt 并用 Markdown 解析器再次解析内容，
-                                // 导致代码块中的空行被当作块分隔符，正文被拆到代码块之外。
-                                // 这里直接把 HTML 解析为 ProseMirror slice 后替换选区。
-                                const html = parser.parse(plainText);
-                                const container = document.createElement('div');
-                                container.innerHTML = html;
-                                // 与 tiptap-markdown 的 inline 处理保持一致：仅当内容为
-                                // 单个段落时按行内内容插入，其余情况按块级内容插入。
-                                const onlyChild = container.childElementCount === 1
-                                    ? container.firstElementChild
-                                    : null;
-                                const inline = onlyChild?.tagName === 'P';
-                                let slice = PMDOMParser.fromSchema(view.state.schema)
-                                    .parseSlice(inline ? onlyChild! : container, {
-                                        preserveWhitespace: 'full',
-                                        ...(inline ? { context: $from } : {}),
-                                    });
-                                if (!inline) {
-                                    // parseSlice 返回“开放”切片（openStart/openEnd > 0），
-                                    // 用于行内拼接；块级粘贴需要闭合切片，否则首个块
-                                    // （如标题）会被并入当前段落。
-                                    slice = new PMSlice(slice.content, 0, 0);
-                                }
-                                if (slice.size > 0) {
-                                    view.dispatch(
-                                        view.state.tr
-                                            .replaceSelection(slice)
-                                            .scrollIntoView()
-                                            .setMeta('paste', true)
-                                            .setMeta('uiEvent', 'paste'),
-                                    );
-                                    return true;
-                                }
-                            } catch {
-                                // 解析失败时回退为纯文本插入
-                            }
-                        }
-
-                        const tr = view.state.tr;
-                        tr.replaceWith(from, to, view.state.schema.text(plainText));
-                        view.dispatch(tr);
-                        return true;
+                        return insertMarkdownText(editor, plainText);
                     },
                 },
             }),

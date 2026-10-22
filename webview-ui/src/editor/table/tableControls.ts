@@ -3,6 +3,7 @@ import { Plugin, PluginKey, Selection } from '@tiptap/pm/state';
 import { EditorView } from '@tiptap/pm/view';
 import { CellSelection, TableMap, moveTableRow, moveTableColumn } from '@tiptap/pm/tables';
 import { t } from '../../i18n';
+import { showTableContextMenu } from './tableContextMenu';
 
 const tableControlsKey = new PluginKey('tableControls');
 
@@ -66,6 +67,27 @@ function measureRowsCols(tableEl: HTMLTableElement) {
     return { rowHeights, colWidths, rowCount: rowHeights.length, colCount: colWidths.length };
 }
 
+/**
+ * 通过手柄刚刚建立的整行/整列选区。
+ *
+ * CellSelection 无法在 DOM 中表示为“整行/整列”的原生选区，ProseMirror 会把
+ * 原生选区设置为选区头单元格内部的范围（列选区即该列最后一个单元格）。
+ * Chromium 在鼠标抬起后会把这个范围规范化，ProseMirror 随即把它回读为
+ * 文本选区，表现为“单击列手柄只选中该列最后一个单元格，需要再点一次”。
+ * 这里在极短的时间窗口内拒绝这种回读，重新应用整行/整列选区。
+ */
+const pendingCellSelection = new WeakMap<EditorView, { selection: CellSelection; until: number }>();
+const PENDING_CELL_SELECTION_WINDOW = 300;
+
+function commitCellSelection(view: EditorView, selection: CellSelection): void {
+    view.dispatch(view.state.tr.setSelection(selection));
+    pendingCellSelection.set(view, {
+        selection,
+        until: Date.now() + PENDING_CELL_SELECTION_WINDOW,
+    });
+    view.focus();
+}
+
 function selectRow(view: EditorView, tablePos: number, rowIndex: number) {
     const tableNode = view.state.doc.nodeAt(tablePos);
     if (!tableNode) return;
@@ -74,8 +96,7 @@ function selectRow(view: EditorView, tablePos: number, rowIndex: number) {
     try {
         const $first = view.state.doc.resolve(tableStart + map.positionAt(rowIndex, 0, tableNode));
         const $last = view.state.doc.resolve(tableStart + map.positionAt(rowIndex, map.width - 1, tableNode));
-        view.dispatch(view.state.tr.setSelection(CellSelection.rowSelection($first, $last)));
-        view.focus();
+        commitCellSelection(view, CellSelection.rowSelection($first, $last));
     } catch { /* ignore */ }
 }
 
@@ -87,8 +108,7 @@ function selectCol(view: EditorView, tablePos: number, colIndex: number) {
     try {
         const $first = view.state.doc.resolve(tableStart + map.positionAt(0, colIndex, tableNode));
         const $last = view.state.doc.resolve(tableStart + map.positionAt(map.height - 1, colIndex, tableNode));
-        view.dispatch(view.state.tr.setSelection(CellSelection.colSelection($first, $last)));
-        view.focus();
+        commitCellSelection(view, CellSelection.colSelection($first, $last));
     } catch { /* ignore */ }
 }
 
@@ -148,6 +168,8 @@ function showControlsForCell(
     rowHandle.className = 'table-row-handle';
     rowHandle.title = t('table.dragRow');
     rowHandle.innerHTML = DRAG_HANDLE_SVG;
+    rowHandle.dataset.tableHandle = 'row';
+    rowHandle.dataset.row = String(hoveredRow);
     rowHandle.style.top = `${tTop + rowYOffset}px`;
     rowHandle.style.height = `${rowH}px`;
     rowHandle.style.left = `${tLeft-13}px`;
@@ -158,10 +180,19 @@ function showControlsForCell(
     const rowDragFromIndex = hoveredRow;
 
     rowHandle.addEventListener('mousedown', (e) => {
+        // 右键交给 contextmenu 处理
+        if (e.button !== 0) return;
         e.preventDefault();
         e.stopPropagation();
         rowDragActive = false;
         rowDragStartY = e.clientY;
+
+        // 单击时立即选中整行：避免在已有单元格选区时，
+        // 第一次点击被当成普通的单元格点击。
+        const initialTablePos = findTablePosFromDOM(view, tableWrapper);
+        if (initialTablePos != null) {
+            selectRow(view, initialTablePos, hoveredRow);
+        }
 
         // 为拖拽计算快照当前 tableRect
         const snapTableRect = tableEl.getBoundingClientRect();
@@ -312,6 +343,8 @@ function showControlsForCell(
     colHandle.className = 'table-col-handle';
     colHandle.title = t('table.dragCol');
     colHandle.innerHTML = DRAG_HANDLE_SVG;
+    colHandle.dataset.tableHandle = 'col';
+    colHandle.dataset.col = String(hoveredCol);
     colHandle.style.left = `${tLeft + colXOffset}px`;
     colHandle.style.width = `${colW}px`;
     colHandle.style.top = `${tTop-13}px`;
@@ -321,10 +354,19 @@ function showControlsForCell(
     const colDragFromIndex = hoveredCol;
 
     colHandle.addEventListener('mousedown', (e) => {
+        // 右键交给 contextmenu 处理
+        if (e.button !== 0) return;
         e.preventDefault();
         e.stopPropagation();
         colDragActive = false;
         colDragStartX = e.clientX;
+
+        // 单击时立即选中整列：避免在已有列选区时，
+        // 第一次点击只落到目标列的最后一个单元格。
+        const initialTablePos = findTablePosFromDOM(view, tableWrapper);
+        if (initialTablePos != null) {
+            selectCol(view, initialTablePos, hoveredCol);
+        }
 
         // 为拖拽计算快照当前 tableRect
         const snapTableRect = tableEl.getBoundingClientRect();
@@ -637,17 +679,52 @@ export const TableControls = Extension.create({
         return [
             new Plugin({
                 key: tableControlsKey,
+                /**
+                 * 拦截浏览器回读产生的文本选区：紧接手柄点击之后，若抛出的新选区
+                 * 落在刚建立的整行/整列选区内（典型为选区头单元格中的文本选区），
+                 * 恢复整行/整列选区。
+                 */
+                appendTransaction(transactions, oldState, newState) {
+                    const view = editor?.view;
+                    if (!view) return null;
+                    const pending = pendingCellSelection.get(view);
+                    if (!pending) return null;
+                    if (Date.now() > pending.until) {
+                        pendingCellSelection.delete(view);
+                        return null;
+                    }
+                    // 文档变化（如插入/删除行）时不再纠正
+                    if (newState.doc !== oldState.doc) {
+                        pendingCellSelection.delete(view);
+                        return null;
+                    }
+                    if (!transactions.some(tr => tr.selectionSet)) return null;
+                    if (newState.selection.eq(pending.selection)) return null;
+                    // 用户重新框选/切换到其它单元格选区时保持用户操作
+                    if (newState.selection instanceof CellSelection) return null;
+
+                    const sel = newState.selection;
+                    if (sel.from < pending.selection.from || sel.to > pending.selection.to) {
+                        pendingCellSelection.delete(view);
+                        return null;
+                    }
+                    return newState.tr.setSelection(pending.selection);
+                },
                 props: {
                     handleDOMEvents: {
-                        mousedown(_: EditorView, event: MouseEvent) {
+                        mousedown(view: EditorView, event: MouseEvent) {
                             const target = event.target as HTMLElement;
                             if (target.closest('[data-table-controls]')) {
                                 return true;
                             }
+                            // 新的鼠标交互意味着用户主动离开了整行/整列选区
+                            pendingCellSelection.delete(view);
                             return false;
                         },
                     },
                     handleKeyDown(view: EditorView, event: KeyboardEvent) {
+                        // 任何按键都意味着用户已开始新的编辑操作
+                        pendingCellSelection.delete(view);
                         if (event.key !== 'Backspace' && event.key !== 'Delete') return false;
 
                         const { state } = view;
@@ -896,98 +973,54 @@ export const TableControls = Extension.create({
 
                         return false;
                     },
-                    // 检测在表头单元格起始处输入的 <<<（左对齐）、>>>（右对齐）和 <|>（居中对齐）。
-                    // 对整列（表头 + 所有主体单元格）设置对齐方式。
-                    handleTextInput(view: EditorView, from: number, _to: number, text: string) {
-                        if (text !== '<' && text !== '>') return false;
-
-                        const { state } = view;
-                        const $from = state.doc.resolve(from);
-
-                        // 必须位于 tableHeader 单元格内
-                        let cellNode = null;
-                        let cellPos = 0;
-                        let cellDepth = 0;
-                        for (let d = $from.depth; d > 0; d--) {
-                            const node = $from.node(d);
-                            if (node.type.name === 'tableHeader') {
-                                cellNode = node;
-                                cellPos = $from.before(d);
-                                cellDepth = d;
-                                break;
-                            }
-                        }
-                        if (!cellNode) return false;
-
-                        const cellStart = $from.start(cellDepth);
-                        const textBefore = state.doc.textBetween(cellStart, from, '');
-
-                        let alignment: string | null = null;
-                        let prefixLen = 0;
-                        if (text === '<' && textBefore === '<<') {
-                            alignment = 'left';
-                            prefixLen = 2; // 删除 "<<"
-                        } else if (text === '>' && textBefore === '>>') {
-                            alignment = 'right';
-                            prefixLen = 2; // 删除 ">>"
-                        } else if (text === '>' && textBefore === '<|') {
-                            alignment = 'center';
-                            prefixLen = 2; // 删除 "<|"
-                        }
-                        if (!alignment) return false;
-
-                        // 找到所属表格节点及列索引
-                        let tableNode = null;
-                        let tablePos = 0;
-                        for (let d = $from.depth; d > 0; d--) {
-                            const node = $from.node(d);
-                            if (node.type.name === 'table') {
-                                tableNode = node;
-                                tablePos = $from.before(d);
-                                break;
-                            }
-                        }
-                        if (!tableNode) return false;
-
-                        const map = TableMap.get(tableNode);
-                        const tableStart = tablePos + 1;
-                        // 找出该表头单元格所在的列
-                        const cellOffset = cellPos - tableStart;
-                        let colIndex = -1;
-                        for (let c = 0; c < map.width; c++) {
-                            if (map.map[c] === cellOffset) { // 第 0 行，第 c 列
-                                colIndex = c;
-                                break;
-                            }
-                        }
-                        if (colIndex < 0) return false;
-
-                        // 构建单个事务：
-                        // 1. 为该列所有单元格设置 textAlign
-                        // 2. 删除 "<<" 或 ">>" 前缀
-                        const tr = state.tr;
-
-                        // 从下往上为该列每个单元格设置对齐方式（保持位置正确）
-                        for (let r = map.height - 1; r >= 0; r--) {
-                            const pos = tableStart + map.map[r * map.width + colIndex];
-                            const node = state.doc.nodeAt(pos);
-                            if (node && (node.type.name === 'tableCell' || node.type.name === 'tableHeader')) {
-                                tr.setNodeMarkup(pos, undefined, {
-                                    ...node.attrs,
-                                    textAlign: alignment,
-                                });
-                            }
-                        }
-
-                        // 使用映射后的位置删除前缀（"<<"、">>" 或 "<|"）
-                        const deleteFrom = from - prefixLen;
-                        tr.delete(tr.mapping.map(deleteFrom), tr.mapping.map(from));
-
-                        view.dispatch(tr);
-                        return true;
-                    },
                 },
-                view() {
+                view(view: EditorView) {
+                    // 在捕获阶段拦截手柄上的右键，覆盖 VS Code webview 的默认右键菜单。
+                    const onContextMenu = (event: MouseEvent) => {
+                        const target = event.target as HTMLElement | null;
+                        if (!target || typeof target.closest !== 'function') return;
+                        const handle = target.closest('[data-table-handle]') as HTMLElement | null;
+                        if (!handle || !view.dom.contains(handle)) return;
+
+                        const tableWrapper = handle.closest('.tableWrapper') as HTMLElement | null;
+                        if (!tableWrapper) return;
+                        const tablePos = findTablePosFromDOM(view, tableWrapper);
+                        if (tablePos == null) return;
+
+                        event.preventDefault();
+                        event.stopImmediatePropagation();
+
+                        const kind: 'row' | 'col' =
+                            handle.dataset.tableHandle === 'row' ? 'row' : 'col';
+                        const row = Number(handle.dataset.row ?? '0');
+                        const col = Number(handle.dataset.col ?? '0');
+
+                        // 右键时先选中对应的整行/整列，使剪切、复制等操作作用于整行/整列。
+                        if (kind === 'row') {
+                            selectRow(view, tablePos, row);
+                        } else {
+                            selectCol(view, tablePos, col);
+                        }
+
+                        showTableContextMenu({
+                            editor,
+                            view,
+                            tablePos,
+                            kind,
+                            row,
+                            col,
+                            x: event.clientX,
+                            y: event.clientY,
+                        });
+                    };
+                    window.addEventListener('contextmenu', onContextMenu, true);
+
+                    // 仅在文档结构变化时重建控件。
+                    // 纯选区更新（例如单击手柄选中整列）无需重建——重建会在鼠标
+                    // 按下期间移除手柄元素，浏览器可能因此把单元格选区的原生选区
+                    // 规范化并回读为文本选区（只选中该列最后一个单元格）。
+                    let lastDoc = view.state.doc;
+
                     return {
                         update(view: EditorView) {
                             view.dom.querySelectorAll('.tableWrapper').forEach((el) => {
@@ -995,6 +1028,10 @@ export const TableControls = Extension.create({
                                     attachListeners(el, view);
                                 }
                             });
+
+                            const docChanged = view.state.doc !== lastDoc;
+                            lastDoc = view.state.doc;
+                            if (!docChanged) return;
 
                             // 任何状态更新后（如删行/删列、拖拽重排），刷新可见控件以防止错位。
                             // 若某 wrapper 当前有控件，以缓存的单元格位置重新渲染，
@@ -1025,6 +1062,7 @@ export const TableControls = Extension.create({
                             }
                         },
                         destroy() {
+                            window.removeEventListener('contextmenu', onContextMenu, true);
                             if (hideTimer) clearTimeout(hideTimer);
                             editor.view.dom.querySelectorAll('[data-table-controls]').forEach(el => el.remove());
                         },

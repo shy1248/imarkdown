@@ -30,6 +30,7 @@ export function clearState() {
     extensionState.activeWebviewPanel = undefined;
     outlineProvider?.clearToc();
     vscode.commands.executeCommand('setContext', 'imarkdown.editorIsActive', false);
+    vscode.commands.executeCommand('setContext', 'imarkdown.hasSelection', false);
 }
 
 /** 将所有行尾符统一替换为 LF（\n）。 */

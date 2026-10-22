@@ -241,3 +241,46 @@
 .ProseMirror.resize-cursor {
     cursor: col-resize !important;
 }
+
+/* =====================================================
+   行/列手柄的右键菜单
+   ===================================================== */
+.table-context-menu {
+    position: fixed;
+    z-index: 10000;
+    min-width: 170px;
+    padding: 4px;
+    box-sizing: border-box;
+    background: var(--vscode-menu-background, var(--vscode-editorWidget-background, #252526));
+    color: var(--vscode-menu-foreground, var(--vscode-editorWidget-foreground, #cccccc));
+    border: 1px solid var(--vscode-menu-border, var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.35)));
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+    font-size: 12px;
+    line-height: 1.5;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.table-context-menu-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: default;
+    white-space: nowrap;
+    outline: none;
+}
+
+.table-context-menu-item:hover {
+    background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground, #094771));
+    color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground, #ffffff));
+}
+
+.table-context-menu-separator {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--vscode-menu-separatorBackground, var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.35)));
+}

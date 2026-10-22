@@ -8,6 +8,7 @@ import { migrateMathStrings } from '@tiptap/extension-mathematics';
 import { Extensions } from '@tiptap/core';
 import { updateTheme, getPendingTheme, getHighlighter } from '../editor/code/codeHighlight';
 import { updateImageUrls, sendToc } from '../editor/editorUtils';
+import { notifySelectionState, resetSelectionState } from '../editor/selectionState';
 import { postMessage, getState } from '../vscode';
 import { broadcastAllPanelsClose } from '../editor/editorPanelHelper';
 import { initDragAutoScroll } from '../editor/dragAutoScroll';
@@ -87,6 +88,7 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
         }
         suppressRef.current = false;
         lastMarkdownRef.current = text;
+        notifySelectionState(ed);
 
         isInitialLoadRef.current = false;
 
@@ -120,6 +122,8 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
 
         // ── 编辑器事件处理 ──────────────────────────────────────────────────
         newEditor.on('update', () => {
+            // 内容被替换后选区可能变为空，需要同步右键菜单的可用性
+            notifySelectionState(newEditor);
             if (suppressRef.current) {
                 suppressRef.current = false;
                 return;
@@ -154,6 +158,7 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
 
         newEditor.on('selectionUpdate', () => {
             forceUpdate((n) => n + 1);
+            notifySelectionState(newEditor);
         });
 
         // 图片 MutationObserver——防抖，避免每次按键都进行大量 DOM 扫描
@@ -306,6 +311,7 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('scroll', handleScroll, true);
             resizeObserver?.disconnect();
+            resetSelectionState();
             newEditor.destroy();
             editorRef.current = null;
         };

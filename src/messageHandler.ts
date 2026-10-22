@@ -41,6 +41,39 @@ export function registerMessageHandler(ctx: MessageContext): void {
                 ctx.lastWebviewChangeTime.value = Date.now();
                 return;
 
+            // 编辑器选区状态：非空时隐藏 webview 右键菜单中的
+            // “使用纯文本模式打开”和“导出为 HTML”命令。
+            case 'selectionChanged':
+                vscode.commands.executeCommand(
+                    'setContext',
+                    'imarkdown.hasSelection',
+                    !!e.hasSelection,
+                );
+                return;
+
+            // webview 弹出的警告通知（如表格粘贴形状不匹配）
+            case 'showWarning':
+                if (typeof e.message === 'string' && e.message) {
+                    vscode.window.showWarningMessage(e.message);
+                }
+                return;
+
+            // 表格右键菜单的剪切/复制/粘贴使用系统剪贴板。
+            // webview 内优先使用 navigator.clipboard；不可用时回退到这里。
+            case 'clipboardWrite':
+                await vscode.env.clipboard.writeText(typeof e.text === 'string' ? e.text : '');
+                return;
+
+            case 'clipboardRead': {
+                const text = await vscode.env.clipboard.readText();
+                ctx.webviewPanel.webview.postMessage({
+                    type: 'clipboardText',
+                    requestId: e.requestId,
+                    text,
+                });
+                return;
+            }
+
             case 'initialized':
                 // 同时发送主题和初始文档内容，确保高亮器在 webview 处理第一个
                 // documentChanged 之前（或同时）完成初始化，避免异步时序问题。

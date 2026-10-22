@@ -1,7 +1,9 @@
 import { Editor } from '@tiptap/core';
-import { Fragment } from '@tiptap/pm/model';
+import { DOMParser as PMDOMParser, Fragment, Slice as PMSlice } from '@tiptap/pm/model';
 import type { Node as PMNode } from '@tiptap/pm/model';
+import { NodeSelection, Selection } from '@tiptap/pm/state';
 import { CellSelection, TableMap } from '@tiptap/pm/tables';
+import { t } from '../i18n';
 import { postMessage } from '../vscode';
 
 /**
@@ -130,9 +132,49 @@ export function serializeCellSelectionAsMarkdown(editor: Editor, selection: any)
 }
 
 /**
+ * 判断选区是否覆盖了节点的全部文字内容。
+ *
+ *   • 文本块（段落/标题/代码块等）：选中范围覆盖整个内容区即视为完整；
+ *   • 容器节点（列表/引用块/表格等）：比较第一个与最后一个文本字符的位置；
+ *   • 没有任何文本的节点：要求选中整个节点。
+ *
+ * 只有完整选中的节点才保留其 Markdown 节点类型；部分选中时会退化为纯文本，
+ * 避免复制代码块片段时把代码围栏等结构一并带入剪贴板。
+ */
+function isNodeContentFullySelected(
+    doc: PMNode,
+    offset: number,
+    node: PMNode,
+    from: number,
+    to: number,
+): boolean {
+    if (node.isTextblock) {
+        return from <= offset + 1 && to >= offset + node.nodeSize - 1;
+    }
+
+    let firstText = Infinity;
+    let lastText = -Infinity;
+    node.descendants((child, pos) => {
+        if (child.isText && child.text) {
+            const start = offset + 1 + pos;
+            firstText = Math.min(firstText, start);
+            lastText = Math.max(lastText, start + child.text.length);
+        }
+        return true;
+    });
+
+    if (firstText === Infinity) {
+        return from <= offset && to >= offset + node.nodeSize;
+    }
+    return from <= firstText && to >= lastText;
+}
+
+/**
  * 将当前选区序列化为 Markdown：
  *   • 单元格选区（CellSelection）只输出所选单元格重建的表格；
- *   • 其他选区按 `doc.slice` 的内容序列化（整表节点选择会得到完整表格）。
+ *   • 表格节点选区输出完整表格，表格内的文本选区只输出纯文本（类似 Excel）；
+ *   • 完整选中的节点保留其 Markdown 结构；
+ *   • 部分选中的节点只输出所选范围的纯文本，避免粘贴时产生嵌套结构。
  */
 export function serializeSelectionAsMarkdown(editor: Editor): string {
     const { selection, doc } = editor.state;
@@ -145,7 +187,355 @@ export function serializeSelectionAsMarkdown(editor: Editor): string {
         if (selected) return selected;
     }
 
-    return serializer.serialize(doc.slice(selection.from, selection.to, true).content).trim();
+    // 行内节点选区（例如图片、行内公式）：按选区切片序列化，
+    // 保留这些行内节点的 Markdown。
+    if (selection instanceof NodeSelection && selection.node.isInline) {
+        const inline = serializer
+            .serialize(doc.slice(selection.from, selection.to, true).content)
+            .trim();
+        if (inline) return inline;
+    }
+
+    const parts: string[] = [];
+
+    doc.forEach((node: PMNode, offset: number) => {
+        const nodeStart = offset;
+        const nodeEnd = offset + node.nodeSize;
+        if (nodeEnd <= selection.from || nodeStart >= selection.to) return;
+
+        // 表格需要区分“选中单元格”和“选中单元格内的文字”：
+        // 只有 CellSelection（或表格节点选区）才输出表格语法；
+        // 表格内部的文本选区按纯文本处理，避免把整张表格结构带入剪贴板。
+        const isTable = node.type.name === 'table';
+        const isTableNodeSelection =
+            selection instanceof NodeSelection && selection.node.type.name === 'table';
+
+        if (!isTable || isTableNodeSelection) {
+            if (isNodeContentFullySelected(doc, offset, node, selection.from, selection.to)) {
+                const markdown = serializer.serialize(Fragment.from(node)).trim();
+                if (markdown) parts.push(markdown);
+                return;
+            }
+        }
+
+        // 部分选中：只复制所选范围内的纯文本，不包含节点类型。
+        const selStart = Math.max(selection.from, nodeStart + 1);
+        const selEnd = Math.min(selection.to, nodeEnd - 1);
+        if (selEnd > selStart) {
+            const text = doc.textBetween(selStart, selEnd, '\n', '\n');
+            if (text) parts.push(text);
+        }
+    });
+
+    return parts.join('\n\n').trim();
+}
+
+/**
+ * 将纯文本按 Markdown 解析后插入编辑器。
+ *
+ * 代码块内保持纯文本插入；剪贴板内容为表格且光标位于表格内时，
+ * 按单元格区域填充（避免嵌套表格）；其余情况按 Markdown 解析插入。
+ */
+export function insertMarkdownText(editor: Editor, plainText: string): boolean {
+    const view = editor.view;
+    const storage = editor.storage as any;
+
+    const currentSelection = view.state.selection;
+    let inCodeBlock = false;
+    for (let d = currentSelection.$from.depth; d > 0; d--) {
+        if (currentSelection.$from.node(d).type.name === 'codeBlock') {
+            inCodeBlock = true;
+            break;
+        }
+    }
+
+    const parser = storage?.markdown?.parser;
+
+    if (!inCodeBlock && parser) {
+        try {
+            // 注意：不能把 HTML 字符串交给 insertContent——tiptap-markdown
+            // 会重写 insertContentAt 并用 Markdown 解析器再次解析内容，
+            // 导致代码块中的空行被当作块分隔符，正文被拆到代码块之外。
+            // 这里直接把 HTML 解析为 ProseMirror slice 后替换选区。
+            const html = parser.parse(plainText);
+            const container = document.createElement('div');
+            container.innerHTML = html;
+
+            // 剪贴板内容为单个表格，且粘贴位置在表格内 → 按单元格填充
+            const pastedTable = extractSingleTable(view.state.schema, container);
+            if (pastedTable) {
+                const grid = readTableGrid(pastedTable);
+                if (grid && pasteTableGrid(editor, grid)) return true;
+            }
+
+            if (insertParsedHtml(editor, container)) return true;
+        } catch {
+            // 解析失败时回退为纯文本插入
+        }
+    }
+
+    return insertPlainText(editor, plainText);
+}
+
+/** 将解析后的 HTML 以 Markdown 语义插入（单元格选区先折叠到锚点单元格）。 */
+function insertParsedHtml(editor: Editor, container: HTMLElement): boolean {
+    const view = editor.view;
+    let tr = view.state.tr;
+    let selection: Selection = view.state.selection;
+    if (selection instanceof CellSelection) {
+        const $anchor = view.state.doc.resolve(selection.$anchorCell.pos + 1);
+        tr = tr.setSelection(Selection.near($anchor, 1));
+        selection = tr.selection;
+    }
+    const $from = selection.$from;
+
+    try {
+        // 与 tiptap-markdown 的 inline 处理保持一致：仅当内容为
+        // 单个段落时按行内内容插入，其余情况按块级内容插入。
+        const onlyChild = container.childElementCount === 1
+            ? container.firstElementChild
+            : null;
+        const inline = onlyChild?.tagName === 'P';
+        let slice = PMDOMParser.fromSchema(view.state.schema)
+            .parseSlice(inline ? onlyChild! : container, {
+                preserveWhitespace: 'full',
+                ...(inline ? { context: $from } : {}),
+            });
+        if (!inline) {
+            // parseSlice 返回“开放”切片（openStart/openEnd > 0），
+            // 用于行内拼接；块级粘贴需要闭合切片，否则首个块
+            // （如标题）会被并入当前段落。
+            slice = new PMSlice(slice.content, 0, 0);
+        }
+        if (slice.size > 0) {
+            view.dispatch(
+                tr.replaceSelection(slice)
+                    .scrollIntoView()
+                    .setMeta('paste', true)
+                    .setMeta('uiEvent', 'paste'),
+            );
+            return true;
+        }
+    } catch {
+        // 交给调用方回退为纯文本
+    }
+    return false;
+}
+
+/** 以纯文本形式插入剪贴板内容（单元格选区先折叠到锚点单元格）。 */
+function insertPlainText(editor: Editor, plainText: string): boolean {
+    const view = editor.view;
+    let tr = view.state.tr;
+    let selection: Selection = view.state.selection;
+    if (selection instanceof CellSelection) {
+        const $anchor = view.state.doc.resolve(selection.$anchorCell.pos + 1);
+        tr = tr.setSelection(Selection.near($anchor, 1));
+        selection = tr.selection;
+    }
+    tr.replaceWith(selection.from, selection.to, view.state.schema.text(plainText));
+    view.dispatch(tr);
+    return true;
+}
+
+// ─── 表格区域粘贴 ─────────────────────────────────────────────
+
+interface TableGrid {
+    rows: number;
+    cols: number;
+    /** null 表示该位置被合并单元格覆盖 */
+    cells: (PMNode | null)[][];
+}
+
+/** 读取表格节点在网格中的单元格内容。 */
+function readTableGrid(table: PMNode): TableGrid | null {
+    try {
+        const map = TableMap.get(table);
+        if (!map.width || !map.height) return null;
+        const seen = new Set<number>();
+        const cells: (PMNode | null)[][] = [];
+        for (let r = 0; r < map.height; r++) {
+            const rowCells: (PMNode | null)[] = [];
+            for (let c = 0; c < map.width; c++) {
+                const offset = map.map[r * map.width + c];
+                if (seen.has(offset)) {
+                    rowCells.push(null);
+                    continue;
+                }
+                seen.add(offset);
+                rowCells.push(table.nodeAt(offset));
+            }
+            cells.push(rowCells);
+        }
+        return { rows: map.height, cols: map.width, cells };
+    } catch {
+        return null;
+    }
+}
+
+/** 从解析后的 HTML 容器中提取唯一的表格节点（内容必须仅为一张表格）。 */
+function extractSingleTable(schema: any, container: HTMLElement): PMNode | null {
+    const meaningful = Array.from(container.childNodes).filter(node => {
+        if (node.nodeType === Node.ELEMENT_NODE) return true;
+        if (node.nodeType === Node.TEXT_NODE) return (node.textContent ?? '').trim().length > 0;
+        return false;
+    });
+    if (meaningful.length !== 1) return null;
+    const only = meaningful[0] as HTMLElement;
+    if (only.nodeType !== Node.ELEMENT_NODE || only.tagName !== 'TABLE') return null;
+
+    try {
+        const parsed = PMDOMParser.fromSchema(schema).parse(container);
+        let table: PMNode | null = null;
+        parsed.descendants(node => {
+            if (node.type.name === 'table') {
+                table = node;
+                return false;
+            }
+            return true;
+        });
+        return table;
+    } catch {
+        return null;
+    }
+}
+
+interface CellPasteTarget {
+    tablePos: number;
+    table: PMNode;
+    startRow: number;
+    startCol: number;
+    selectionRows: number;
+    selectionCols: number;
+    isMultiCell: boolean;
+}
+
+/** 确定当前选区在表格中的起始单元格。 */
+function findCellPasteTarget(state: any): CellPasteTarget | null {
+    const selection = state.selection;
+
+    const resolveTable = ($pos: any): { table: PMNode; tablePos: number } | null => {
+        for (let d = $pos.depth; d > 0; d--) {
+            if ($pos.node(d).type.name === 'table') {
+                return { table: $pos.node(d), tablePos: $pos.before(d) };
+            }
+        }
+        return null;
+    };
+
+    if (selection instanceof CellSelection) {
+        const info = resolveTable(selection.$anchorCell);
+        if (!info) return null;
+        const map = TableMap.get(info.table);
+        const tableStart = info.tablePos + 1;
+        try {
+            const rect = map.rectBetween(
+                selection.$anchorCell.pos - tableStart,
+                selection.$headCell.pos - tableStart,
+            );
+            return {
+                ...info,
+                startRow: rect.top,
+                startCol: rect.left,
+                selectionRows: rect.bottom - rect.top,
+                selectionCols: rect.right - rect.left,
+                isMultiCell: (rect.bottom - rect.top) * (rect.right - rect.left) > 1,
+            };
+        } catch {
+            return null;
+        }
+    }
+
+    const $from = selection.$from;
+    let cellDepth = -1;
+    for (let d = $from.depth; d > 0; d--) {
+        const name = $from.node(d).type.name;
+        if (name === 'tableCell' || name === 'tableHeader') {
+            cellDepth = d;
+            break;
+        }
+    }
+    if (cellDepth < 0) return null;
+
+    const info = resolveTable($from);
+    if (!info) return null;
+    const map = TableMap.get(info.table);
+    const tableStart = info.tablePos + 1;
+    try {
+        const rect = map.findCell($from.before(cellDepth) - tableStart);
+        return {
+            ...info,
+            startRow: rect.top,
+            startCol: rect.left,
+            selectionRows: 1,
+            selectionCols: 1,
+            isMultiCell: false,
+        };
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * 将剪贴板中的表格按单元格区域填充到目标表格。
+ *
+ *   • 若存在多单元格选区，其形状必须与复制的表格一致；
+ *   • 从选区左上角开始的区域必须能容纳复制的表格；
+ *   • 否则弹出通知并放弃粘贴（不产生嵌套表格）。
+ *
+ * 返回 false 表示粘贴位置不在表格内，由调用方按普通 Markdown 处理。
+ */
+function pasteTableGrid(editor: Editor, grid: TableGrid): boolean {
+    const state = editor.state;
+    const target = findCellPasteTarget(state);
+    if (!target) return false;
+
+    const destMap = TableMap.get(target.table);
+    const fits =
+        target.startRow + grid.rows <= destMap.height &&
+        target.startCol + grid.cols <= destMap.width;
+    const shapeMatches =
+        !target.isMultiCell ||
+        (target.selectionRows === grid.rows && target.selectionCols === grid.cols);
+
+    if (!fits || !shapeMatches) {
+        postMessage({ type: 'showWarning', message: t('table.pasteMismatch') });
+        return true;
+    }
+
+    const tableStart = target.tablePos + 1;
+    let tr = state.tr;
+    const written = new Set<number>();
+
+    // 从右下往左上写入，保证事务位置始终对应原始文档
+    for (let r = grid.rows - 1; r >= 0; r--) {
+        for (let c = grid.cols - 1; c >= 0; c--) {
+            const sourceCell = grid.cells[r][c];
+            if (!sourceCell) continue;
+
+            const cellPos = tableStart +
+                destMap.map[(target.startRow + r) * destMap.width + (target.startCol + c)];
+            if (written.has(cellPos)) continue;
+            written.add(cellPos);
+
+            const destCell = state.doc.nodeAt(cellPos);
+            if (!destCell) continue;
+
+            tr = tr.replaceWith(
+                cellPos + 1,
+                cellPos + 1 + destCell.content.size,
+                sourceCell.content,
+            );
+        }
+    }
+
+    if (!tr.docChanged) return true;
+
+    const firstCellPos = tableStart +
+        destMap.map[target.startRow * destMap.width + target.startCol];
+    tr.setSelection(Selection.near(tr.doc.resolve(firstCellPos + 1), 1));
+    tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste');
+    editor.view.dispatch(tr);
+    return true;
 }
 
 /**

@@ -191,6 +191,9 @@ function buildFontStyleTag(editorDom: HTMLElement): string {
             `.code-ln { display: inline-block; text-align: right; color: rgba(150, 150, 150, 0.5); font-size: inherit; line-height: inherit; font-family: inherit; pointer-events: none; user-select: none; -webkit-user-select: none; vertical-align: top; box-sizing: border-box; }`,
             `hr { margin: ${hr.top} 0 ${hr.bottom} 0; }`,
             `.tableWrapper { margin: ${tableW.top} 0 ${tableW.bottom} 0; }`,
+            // 表格默认居中对齐（与编辑器一致）；单元格的 text-align 内联样式会覆盖此规则，
+            // 从而保留用户通过列手柄设置的列对齐方式。
+            `table th, table td { text-align: center; }`,
             `figure { margin: ${figure.top} 0 ${figure.bottom} 0; }`,
             `.tiptap-mathematics-block-container { margin: ${mathBlock.top} 0 ${mathBlock.bottom} 0; }`,
         ].join('\n');
@@ -329,7 +332,7 @@ function cleanupKatex(clone: HTMLElement): void {
 function removeEditorUI(clone: HTMLElement): void {
     clone.querySelectorAll('.link-inline-edit, .image-inline-edit, .math-inline-edit').forEach(el => el.remove());
     clone.querySelectorAll('.resize-handle').forEach(el => el.remove());
-    clone.querySelectorAll('.table-controls, .add-row-btn, .add-col-btn, .column-resize-handle').forEach(el => el.remove());
+    clone.querySelectorAll('.table-controls-wrapper, [data-table-controls], .table-row-handle, .table-col-handle, .table-add-row-btn, .table-add-col-btn, .column-resize-handle').forEach(el => el.remove());
     // 顶层节点左侧的悬浮拖拽手柄（“增加段落”+“拖动排序”按钮）。
     // 导出的静态 HTML 不可编辑，因此这些交互控件必须移除；
     // 同时清理手柄容器，避免其绝对定位样式影响导出布局。
