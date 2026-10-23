@@ -439,15 +439,17 @@ export const ShikiHighlight = Extension.create({
 
 let activeDropdown: HTMLElement | null = null;
 let activeDropdownPre: HTMLElement | null = null;
+/** 下拉菜单打开期间注册的全局监听器清理函数（关闭时必须执行，避免累积泄漏） */
+let activeDropdownDisposers: Array<() => void> = [];
 
 function closeDropdown() {
     if (activeDropdown) {
         activeDropdown.remove();
         activeDropdown = null;
     }
-    if (activeDropdownPre) {
-        activeDropdownPre = null;
-    }
+    activeDropdownPre = null;
+    activeDropdownDisposers.forEach((dispose) => dispose());
+    activeDropdownDisposers = [];
 }
 
 function openLanguageDropdown(
@@ -545,9 +547,11 @@ function openLanguageDropdown(
     const handleScroll = () => {
         if (activeDropdown) closeDropdown();
     };
+    const scrollTargets: EventTarget[] = [];
     const editorEl = anchorEl.closest('.ProseMirror') || anchorEl.closest('[contenteditable]');
     if (editorEl) {
         editorEl.addEventListener('scroll', handleScroll, { once: true, passive: true });
+        scrollTargets.push(editorEl);
         // 同时监听最近的滚动祖先（如 webview 容器）
         let scrollParent = editorEl.parentElement;
         while (scrollParent) {
@@ -555,6 +559,7 @@ function openLanguageDropdown(
             if (style.overflow === 'auto' || style.overflow === 'scroll' ||
                 style.overflowY === 'auto' || style.overflowY === 'scroll') {
                 scrollParent.addEventListener('scroll', handleScroll, { once: true, passive: true });
+                scrollTargets.push(scrollParent);
             }
             scrollParent = scrollParent.parentElement;
         }
@@ -567,9 +572,13 @@ function openLanguageDropdown(
         // 若点击的是同一 <pre> 的标签，让插件的点击切换逻辑处理
         if (activeDropdownPre && (e.target as HTMLElement).closest('.code-language-label')) return;
         closeDropdown();
-        document.removeEventListener('mousedown', handleOutside, true);
     };
     document.addEventListener('mousedown', handleOutside, true);
+
+    activeDropdownDisposers.push(() => {
+        scrollTargets.forEach((target) => target.removeEventListener('scroll', handleScroll));
+        document.removeEventListener('mousedown', handleOutside, true);
+    });
 
     // 将当前活跃项滚动到可视范围并聚焦搜索框
     setTimeout(() => {

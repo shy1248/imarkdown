@@ -39,10 +39,10 @@
 
 ```json
 {
-    // 编辑器的最小宽度，有效值：800-1000px，默认值：800px
+    // 编辑器的最小宽度，有效值：800-1200px，默认值：800px
     "imarkdown.editor.minWidth": 800,
     // 编辑器左右的空白距离，有效值：50-100px，默认值：50px
-    "imarkdown.editor.padding": 60,
+    "imarkdown.editor.padding": 50,
     // 粘贴图片时，图片默认的保存位置
     // 支持vscode变量：${fileDirname}, ${workspaceFolder}, ${fileBasename}, ${fileBasenameNoExtension}
     // 默认值为文档同级目录的 images 目录

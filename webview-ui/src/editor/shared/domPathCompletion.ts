@@ -12,6 +12,7 @@
  */
 
 import { postMessage } from '../../vscode';
+import { hasUrlScheme } from './pathUtils';
 
 export interface PathCompletionItem {
     label: string;
@@ -78,11 +79,11 @@ export function routeDomPathCompletionResult(requestId: string, items: PathCompl
 export function looksLikeLocalPath(value: string): boolean {
     if (!value) return false;
     if (/^https?:\/\//i.test(value)) return false;
-    if (/^mailto:/i.test(value)) return false;
     if (value.startsWith('#')) return false;
     if (value.startsWith('//')) return false;
     if (/^data:/i.test(value)) return false;
-    if (/^[a-z][a-z0-9+\-.]*:/i.test(value)) return false;
+    // 其他协议视为远程地址，但 Windows 盘符（C:\）是本地路径
+    if (hasUrlScheme(value)) return false;
     return true;
 }
 
@@ -103,6 +104,8 @@ export class PathCompleter {
     private pendingRequestId = '';
     /** 在程序化 dispatchEvent 之前递增，onInput 中递减，避免自触发 */
     private suppressInputCount = 0;
+    /** blur 延迟隐藏菜单的定时器（destroy 时需清除，避免影响其他补全实例） */
+    private blurTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(private readonly input: HTMLInputElement) {
         this.input.addEventListener('input', this.onInput);
@@ -114,10 +117,15 @@ export class PathCompleter {
         this.input.removeEventListener('input', this.onInput);
         this.input.removeEventListener('keydown', this.onKeyDown, true);
         this.input.removeEventListener('blur', this.onBlur);
-        // 清除活跃实例引用
-        if (_activeCompleter === this) _activeCompleter = null;
-        // 确保桥接侧的菜单也被隐藏
-        if (_bridge?.isVisible()) _bridge.hide();
+        if (this.blurTimer) {
+            clearTimeout(this.blurTimer);
+            this.blurTimer = null;
+        }
+        // 仅清理本实例拥有的活跃引用与菜单，避免误关其他补全实例的下拉框
+        if (_activeCompleter === this) {
+            _activeCompleter = null;
+            if (_bridge?.isVisible()) _bridge.hide();
+        }
     }
 
     /** 是否当前正在展示下拉菜单 */
@@ -159,8 +167,10 @@ export class PathCompleter {
 
     private onBlur = () => {
         // 延迟执行，让下拉项的 mousedown 先于 blur 触发
-        setTimeout(() => {
-            if (this.isVisible) _bridge?.hide();
+        if (this.blurTimer) clearTimeout(this.blurTimer);
+        this.blurTimer = setTimeout(() => {
+            this.blurTimer = null;
+            if (_activeCompleter === this && this.isVisible) _bridge?.hide();
         }, 150);
     };
 

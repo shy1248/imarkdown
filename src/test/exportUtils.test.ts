@@ -1,14 +1,10 @@
 /**
- * exportUtils 纯辅助函数的测试套件。
- * 此处重新实现不依赖 VS Code API 的纯函数。
+ * 导出 HTML 纯工具函数的测试套件。
+ * 直接测试 src/utils/htmlExport.ts 与 src/utils/textUtils.ts 的真实实现。
  */
 import * as assert from 'assert';
-
-// ── 来自 exportUtils.ts 的 escapeHtml 重新实现 ─────────────────────────────
-
-function escapeHtml(str: string): string {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+import { escapeHtml } from '../utils/textUtils';
+import { buildFullHtml, extractInjectedStyles, getHtmlExportTitle } from '../utils/htmlExport';
 
 describe('escapeHtml', () => {
     it('应转义 & 符号', () => {
@@ -39,21 +35,7 @@ describe('escapeHtml', () => {
     });
 });
 
-// ── 来自 buildFullHtml 的样式提取逻辑重新实现 ──────────────────────────────
-
-function extractInjectedStyles(bodyHtml: string): { injectedStyles: string[]; remaining: string } {
-    let remaining = bodyHtml;
-    const injectedStyles: string[] = [];
-    const styleTagRe = /^(\s*<style[^>]*>[\s\S]*?<\/style>)/i;
-    let m: RegExpExecArray | null;
-    while ((m = styleTagRe.exec(remaining)) !== null) {
-        injectedStyles.push(m[1]);
-        remaining = remaining.slice(m[0].length);
-    }
-    return { injectedStyles, remaining };
-}
-
-describe('extractInjectedStyles（buildFullHtml 辅助函数）', () => {
+describe('extractInjectedStyles', () => {
     it('应提取开头的 <style> 标签', () => {
         const html = '<style>.a{color:red}</style><style>.b{}</style><p>body</p>';
         const { injectedStyles, remaining } = extractInjectedStyles(html);
@@ -86,8 +68,45 @@ describe('extractInjectedStyles（buildFullHtml 辅助函数）', () => {
     it('应处理 style 标签之间的空白字符', () => {
         const html = '<style>.a{}</style>\n<style>.b{}</style><p>text</p>';
         const { injectedStyles, remaining } = extractInjectedStyles(html);
-        // 第二个 style 标签有前导空白，与正则中的 \s* 匹配
         assert.strictEqual(injectedStyles.length, 2);
         assert.strictEqual(remaining, '<p>text</p>');
+    });
+});
+
+describe('buildFullHtml', () => {
+    it('应生成完整 HTML 文档并转义标题', () => {
+        const html = buildFullHtml('<p>body</p>', 'a<b>"c"');
+        assert.ok(html.startsWith('<!DOCTYPE html>'));
+        assert.ok(html.includes('<title>a&lt;b&gt;&quot;c&quot;</title>'));
+        assert.ok(html.includes('<body>\n<p>body</p>\n</body>'));
+    });
+
+    it('应将开头注入的 style 移入 head', () => {
+        const html = buildFullHtml('<style>.x{}</style><p>body</p>', 't');
+        const headEnd = html.indexOf('</head>');
+        assert.ok(html.indexOf('.x{}') > 0 && html.indexOf('.x{}') < headEnd);
+    });
+
+    it('空正文也应生成合法结构', () => {
+        const html = buildFullHtml('', 't');
+        assert.ok(html.includes('<body>\n\n</body>'));
+    });
+});
+
+describe('getHtmlExportTitle', () => {
+    it('应去除 .md 扩展名', () => {
+        assert.strictEqual(getHtmlExportTitle('/docs/readme.md'), 'readme');
+    });
+
+    it('应去除 .markdown 扩展名（回归用例）', () => {
+        assert.strictEqual(getHtmlExportTitle('/docs/readme.markdown'), 'readme');
+    });
+
+    it('无扩展名时应原样返回', () => {
+        assert.strictEqual(getHtmlExportTitle('/docs/README'), 'README');
+    });
+
+    it('文件名含多个点时应仅去除最后一个扩展名', () => {
+        assert.strictEqual(getHtmlExportTitle('a.b.md'), 'a.b');
     });
 });

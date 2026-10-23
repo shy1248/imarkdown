@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import en from '../i18n/en';
 import zh from '../i18n/zh';
+import { t } from '../i18n';
 
 describe('i18n 键一致性', () => {
     const enKeys = Object.keys(en).sort();
@@ -32,6 +33,14 @@ describe('i18n 键一致性', () => {
     it('zh 中不应有空字符串值', () => {
         for (const [key, value] of Object.entries(zh)) {
             expect(value, `zh["${key}"] 不应为空字符串`).not.toBe('');
+        }
+    });
+});
+
+describe('t()', () => {
+    it('每个键都应返回非空字符串', () => {
+        for (const key of Object.keys(en)) {
+            expect(t(key as any), `t("${key}") 不应为空`).toBeTruthy();
         }
     });
 });

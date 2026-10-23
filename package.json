@@ -2,7 +2,7 @@
     "name": "imarkdown-editor",
     "displayName": "iMarkdown - Markdown WYSIWYG Editor",
     "description": "Markdown editor with WYSIWYG mode.",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "publisher": "shy1248",
     "repository": {
         "type": "git",
@@ -143,11 +143,11 @@
                     ],
                     "default": "moderate",
                     "description": "%Layout density of the editor content.%",
-                    "markdownDescription": "%layout density of the editor content.%",
+                    "markdownDescription": "%Layout density of the editor content.%",
                     "enumDescriptions": [
-                        "%Compact layout (0.1em node spacing).%",
-                        "%Moderate layout (0.3em node spacing).%",
-                        "%Loose layout (0.5em node spacing).%"
+                        "%Compact layout (tighter spacing).%",
+                        "%Moderate layout (balanced spacing).%",
+                        "%Loose layout (looser spacing).%"
                     ]
                 },
                 "imarkdown.editor.codeLineNumbers": {

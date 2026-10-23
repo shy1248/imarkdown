@@ -143,8 +143,8 @@ function buildFontStyleTag(editorDom: HTMLElement): string {
             if (!ruleBody) return { top: '0px', bottom: '0px' };
 
             // 创建与选择器同名标签（或 div）的探针元素，
-            // 追加到 editorDom 中以继承正确的 font-size 上下文
-            // （对使用 em 单位的 calc() 表达式很重要）。
+            // 复制编辑器字号后挂到 body 上测量（避免修改 ProseMirror 管理的 DOM，
+            // 否则会触发其 MutationObserver 并可能影响选区）。
             const tag = /^[a-z][a-z0-9]*$/i.test(selectorFragment) ? selectorFragment : 'div';
             const probe = document.createElement(tag);
             probe.style.cssText = ruleBody;
@@ -152,10 +152,11 @@ function buildFontStyleTag(editorDom: HTMLElement): string {
             probe.style.visibility = 'hidden';
             probe.style.width = '1px';
             probe.style.height = '1px';
-            editorDom.appendChild(probe);
+            probe.style.fontSize = window.getComputedStyle(editorDom).fontSize;
+            document.body.appendChild(probe);
             const cs = window.getComputedStyle(probe);
             const result = { top: cs.marginTop, bottom: cs.marginBottom };
-            editorDom.removeChild(probe);
+            probe.remove();
             return result;
         };
 

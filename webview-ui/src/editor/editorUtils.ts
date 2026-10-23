@@ -7,6 +7,17 @@ import { t } from '../i18n';
 import { postMessage } from '../vscode';
 
 /**
+ * 读取编辑器内容对应的 Markdown 文本。
+ * 优先使用 tiptap-markdown 的序列化结果，回退到纯文本。
+ */
+export function getEditorMarkdown(editor: Editor): string {
+    const storage = editor.storage as any;
+    return storage?.markdown?.getMarkdown
+        ? storage.markdown.getMarkdown()
+        : editor.getText();
+}
+
+/**
  * 将相对图片 URL 解析为绝对 webview URL。
  */
 export function resolveImageUrl(src: string): string {
@@ -563,7 +574,7 @@ export function sendToc(editor: Editor): void {
  * 返回元素的可滚动祖先（第一个会滚动的祖先节点），
  * 若不存在则回退到 document.documentElement。
  */
-function getScrollParent(el: HTMLElement): HTMLElement {
+export function getScrollParent(el: HTMLElement): HTMLElement {
     let current: HTMLElement | null = el.parentElement;
     while (current) {
         const style = window.getComputedStyle(current);

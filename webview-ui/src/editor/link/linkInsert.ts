@@ -158,11 +158,12 @@ function buildWidget(
             const newText = textInput.value.trim();
             const originalText = ws.prefillText;
             if (newText && newText !== originalText) {
-                // 替换文本后，对新范围应用链接标记
+                // 替换文本后，对新范围应用链接标记。
+                // 使用对象形式插入纯文本，避免 insertContent 将 *x* 等内容解析为 Markdown 格式。
                 editor.chain()
                     .focus()
                     .setTextSelection({ from, to })
-                    .insertContent(newText)
+                    .insertContent({ type: 'text', text: newText })
                     .setTextSelection({ from, to: from + newText.length })
                     .setLink({ href: url })
                     .run();

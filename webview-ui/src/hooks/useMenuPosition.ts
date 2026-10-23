@@ -29,8 +29,9 @@ export function useMenuPosition(
 ) {
     useEffect(() => {
         if (!visible || !menuRef.current || !coords) return;
-        requestAnimationFrame(() => {
-            const menu = menuRef.current!;
+        const raf = requestAnimationFrame(() => {
+            const menu = menuRef.current;
+            if (!menu) return;
             const rect = menu.getBoundingClientRect();
             let newTop = coords.bottom + 4;
             let newLeft = coords.left;
@@ -45,5 +46,6 @@ export function useMenuPosition(
             menu.style.top = `${newTop}px`;
             menu.style.left = `${newLeft}px`;
         });
-    }, [visible, coords, itemCount]);
+        return () => cancelAnimationFrame(raf);
+    }, [visible, coords, itemCount, options?.minLeft]);
 }

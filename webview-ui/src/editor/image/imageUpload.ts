@@ -1,7 +1,8 @@
 import { Node, mergeAttributes } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
+import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import { t } from '../../i18n';
-import { isPanelCancelKey, isPanelSaveKey, onAllPanelsClose } from '../editorPanelHelper';
+import { postMessage } from '../../vscode';
+import { onAllPanelsClose } from '../editorPanelHelper';
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -12,20 +13,36 @@ export interface ImageUploadOptions {
 
 // ── 活跃上传块注册表 ──────────────────────────────────────────────────────
 // 因为上传块 container 永远不获得键盘焦点（mousedown 被 preventDefault 阻止），
-// 我们使用模块级注册表 + window keydown 监听器来响应 ESC/Ctrl+Z/Ctrl+S。
-// 文档中可能同时存在多个上传块，取消时删除最近插入的一个（LIFO 顺序）。
-const _activeRemoveFns: (() => void)[] = [];
+// 我们使用模块级注册表 + window keydown 监听器来响应 ESC/Ctrl+Z。
+// Ctrl+S 由 editorPanelHelper 的“关闭全部面板”事件统一处理。
+interface ActiveUploadBlock {
+    /** 移除此上传块 */
+    remove: () => void;
+    /** 当前选区是否落在该上传块上（用于判断 Ctrl+Z 是否应作用于它） */
+    isSelected: () => boolean;
+}
+
+const _activeBlocks: ActiveUploadBlock[] = [];
 
 // 单例 window keydown 监听器——按需注册，所有块共享一个
 function handleUploadBlockKeydown(e: KeyboardEvent) {
-    if (_activeRemoveFns.length === 0) return;
-    if (isPanelCancelKey(e) || isPanelSaveKey(e)) {
-        // Ctrl+Z / ESC：移除最近的上传块
-        // Ctrl+S：移除但不阻止传播（让保存逻辑继续）
-        if (!isPanelSaveKey(e)) e.preventDefault();
+    if (_activeBlocks.length === 0) return;
+
+    const isUndo = (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z';
+    // Ctrl+Z 仅在上传块本身被选中时取消？被选中时优先取消上传块，否则交给编辑器撤销
+    if (isUndo) {
+        const target = [..._activeBlocks].reverse().find((block) => block.isSelected());
+        if (!target) return;
+        e.preventDefault();
         e.stopPropagation();
-        const removeFn = _activeRemoveFns[_activeRemoveFns.length - 1];
-        removeFn?.();
+        target.remove();
+        return;
+    }
+
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        _activeBlocks[_activeBlocks.length - 1]?.remove();
     }
 }
 let _windowListenerActive = false;
@@ -35,7 +52,7 @@ function ensureWindowListener() {
     window.addEventListener('keydown', handleUploadBlockKeydown, true);
 }
 function maybeRemoveWindowListener() {
-    if (_activeRemoveFns.length > 0 || !_windowListenerActive) return;
+    if (_activeBlocks.length > 0 || !_windowListenerActive) return;
     _windowListenerActive = false;
     window.removeEventListener('keydown', handleUploadBlockKeydown, true);
 }
@@ -156,8 +173,15 @@ export function imageUpload(options: ImageUploadOptions) {
                     }
                 };
 
-                // 注册到活跃上传块列表，确保 window keydown 监听器可响应 ESC/Ctrl+Z/Ctrl+S
-                _activeRemoveFns.push(removeSelf);
+                // 注册到活跃上传块列表，确保 window keydown 监听器可响应 ESC/Ctrl+Z
+                const isSelected = () => {
+                    const pos = typeof getPos === 'function' ? getPos() : null;
+                    if (pos == null) return false;
+                    const sel = editor.state.selection;
+                    return sel instanceof NodeSelection && sel.from === pos;
+                };
+                const entry: ActiveUploadBlock = { remove: removeSelf, isSelected };
+                _activeBlocks.push(entry);
                 ensureWindowListener();
                 // 监听全局面板关闭事件（由 Ctrl+S 保存逻辑触发）
                 const cleanupAllPanelsClose = onAllPanelsClose(() => removeSelf());
@@ -169,13 +193,13 @@ export function imageUpload(options: ImageUploadOptions) {
                     if (files.length === 0) return;
 
                     if (files.length > MAX_FILES) {
-                        alert(t('imageUpload.tooMany'));
+                        postMessage({ type: 'showWarning', message: t('imageUpload.tooMany') });
                         return;
                     }
 
                     const oversized = files.filter((f) => f.size > MAX_FILE_SIZE);
                     if (oversized.length > 0) {
-                        alert(t('imageUpload.tooLarge'));
+                        postMessage({ type: 'showWarning', message: t('imageUpload.tooLarge') });
                         return;
                     }
 
@@ -250,8 +274,8 @@ export function imageUpload(options: ImageUploadOptions) {
                     },
                     destroy() {
                         // 从活跃列表中注销，防止 keydown 监听器在节点销毁后仍尝试操作
-                        const idx = _activeRemoveFns.indexOf(removeSelf);
-                        if (idx !== -1) _activeRemoveFns.splice(idx, 1);
+                        const idx = _activeBlocks.indexOf(entry);
+                        if (idx !== -1) _activeBlocks.splice(idx, 1);
                         maybeRemoveWindowListener();
                         cleanupAllPanelsClose();
                     },

@@ -29,7 +29,8 @@ function getToolbarHeight(): number {
     return t ? t.offsetHeight : 0;
 }
 
-function computeSpeed(distance: number, zone: number): number {
+export function computeSpeed(distance: number, zone: number): number {
+    if (zone <= 0) return MIN_SPEED;
     const ratio = Math.max(0, Math.min(1, distance / zone));
     const t = 1 - ratio;
     return Math.round(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * t * t);

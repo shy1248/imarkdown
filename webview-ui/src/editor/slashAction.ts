@@ -13,7 +13,7 @@ export function filterSlashCommands(query: string): CommandDefined[] {
         if (cmd.label.toLowerCase().includes(q)) return true;
         if (cmd.id.toLowerCase().includes(q)) return true;
         if (cmd.desc.toLowerCase().includes(q)) return true;
-        return cmd.keywords.some((kw) => kw.includes(q));
+        return cmd.keywords.some((kw) => kw.toLowerCase().includes(q));
     });
 }
 

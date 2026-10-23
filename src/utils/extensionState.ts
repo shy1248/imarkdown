@@ -33,7 +33,5 @@ export function clearState() {
     vscode.commands.executeCommand('setContext', 'imarkdown.hasSelection', false);
 }
 
-/** 将所有行尾符统一替换为 LF（\n）。 */
-export function normalizeEol(text: string): string {
-    return text.replace(/(?:\r\n|\r|\n)/g, '\n');
-}
+/** 行尾符统一为 LF 后便于比较 webview 内容与磁盘内容。 */
+export { normalizeEol } from './textUtils';

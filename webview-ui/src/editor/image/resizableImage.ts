@@ -4,6 +4,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { t } from '../../i18n';
 import { generatePanelId, broadcastPanelOpen, onOtherPanelOpen, isPanelCancelKey, isPanelSaveKey, onAllPanelsClose } from '../editorPanelHelper';
 import { PathCompleter } from '../shared/domPathCompletion';
+import { createInlineEditToolbar } from '../shared/inlineEditToolbar';
 
 export interface ImageResizeOptions {
     resolveImageUrl: (src: string) => string;
@@ -207,31 +208,6 @@ export function resizableImage(options: ImageResizeOptions) {
                     const srcInput   = makeField(t('image.edit.src'),   node.attrs.src   || '', t('image.edit.srcPlaceholder'));
                     const titleInput = makeField(t('image.edit.title'), node.attrs.title || '', t('image.edit.titlePlaceholder'));
 
-                    // 按钮栏：✓  ✕  |  删除图片（最右侧）
-                    const btnBar = document.createElement('div');
-                    btnBar.classList.add('inline-edit-buttons');
-
-                    const applyBtn = document.createElement('button');
-                    applyBtn.textContent = '✓';
-                    applyBtn.title = t('Confirm (Enter)');
-                    applyBtn.classList.add('inline-edit-btn', 'inline-edit-btn-apply');
-
-                    const cancelBtn = document.createElement('button');
-                    cancelBtn.textContent = '✕';
-                    cancelBtn.title = t('Cancel (Esc)');
-                    cancelBtn.classList.add('inline-edit-btn', 'inline-edit-btn-cancel');
-
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.textContent = t('image.delete');
-                    deleteBtn.title = t('image.delete');
-                    deleteBtn.classList.add('inline-edit-btn', 'inline-edit-btn-unlink');
-                    deleteBtn.style.marginLeft = 'auto';
-
-                    btnBar.appendChild(applyBtn);
-                    btnBar.appendChild(cancelBtn);
-                    btnBar.appendChild(deleteBtn);
-                    editPanel.appendChild(btnBar);
-
                     function applyEdit() {
                         const newSrc   = srcInput.value.trim();
                         const newAlt   = altInput.value.trim();
@@ -267,9 +243,11 @@ export function resizableImage(options: ImageResizeOptions) {
                         }
                     }
 
-                    applyBtn.addEventListener('mousedown',  (e) => { e.preventDefault(); e.stopPropagation(); applyEdit(); });
-                    cancelBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); hideEditor(); });
-                    deleteBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); deleteImage(); });
+                    editPanel.appendChild(createInlineEditToolbar({
+                        onApply: applyEdit,
+                        onCancel: () => hideEditor(),
+                        onDelete: deleteImage,
+                    }));
 
                     // -- srcInput 的路径补全（使用共用 PathCompleter）-------------------------
                     // PathCompleter 的 keydown 已在捕获阶段处理 ArrowUp/Down/Tab/Enter/Escape，
@@ -440,6 +418,8 @@ export function resizableImage(options: ImageResizeOptions) {
                     // 忽略所有 DOM 变更——我们手动管理 DOM。
                     ignoreMutation: () => true,
                     destroy() {
+                        // 编辑面板打开时节点被销毁，需同步清理路径补全与全局面板监听
+                        if (isEditing) hideEditor(true);
                         if (editPanel) { editPanel.remove(); editPanel = null; }
                         window.removeEventListener('image-edit-request', handleEditRequest);
                         cleanupPanelListener();

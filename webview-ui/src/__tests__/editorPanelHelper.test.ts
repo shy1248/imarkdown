@@ -3,7 +3,7 @@
  *
  * 这些测试在 Node/vitest 环境中运行，对 `window` 事件进行了模拟。
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { generatePanelId, broadcastPanelOpen, onOtherPanelOpen } from '../editor/editorPanelHelper';
 
 describe('generatePanelId', () => {

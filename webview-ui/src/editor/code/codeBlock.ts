@@ -144,53 +144,49 @@ export const CustomCodeBlock = CodeBlock.extend({
                     const paragraphType = schema.nodes.paragraph;
                     if (!paragraphType) return null;
 
+                    // 收集顶层代码块位置（升序）
+                    const codeBlockPositions: number[] = [];
+                    doc.forEach((node, offset) => {
+                        if (node.type.name === 'codeBlock') codeBlockPositions.push(offset);
+                    });
+                    if (codeBlockPositions.length === 0) return null;
+
                     let tr: import('@tiptap/pm/state').Transaction | null = null;
 
-                    // 遍历每个顶层节点，查找含非法（非文本）子节点的代码块
-                    doc.forEach((node, offset) => {
-                        if (node.type.name !== 'codeBlock') return;
+                    // 从后向前处理：对靠后代码块的修改不会影响靠前代码块的位置
+                    for (const pos of [...codeBlockPositions].reverse()) {
+                        const blockNode = (tr ?? newState.tr).doc.nodeAt(pos);
+                        if (!blockNode || blockNode.type.name !== 'codeBlock') continue;
 
-                        // 代码块内容只应包含文本/内联节点，收集所有块级"入侵"子节点
-                        const intruders: { node: PmNode; index: number }[] = [];
-                        node.forEach((child: PmNode, _childOffset: number, index: number) => {
+                        // 收集块级"入侵"子节点（代码块只允许内联内容）
+                        const intruders: { node: PmNode; childOffset: number }[] = [];
+                        blockNode.forEach((child: PmNode, childOffset: number) => {
                             if (!child.isInline && child.type.name !== 'text') {
-                                intruders.push({ node: child, index });
+                                intruders.push({ node: child, childOffset });
                             }
                         });
-                        if (intruders.length === 0) return;
+                        if (intruders.length === 0) continue;
 
                         if (!tr) tr = newState.tr;
 
-                        // 将每个入侵节点从代码块中移除，并在代码块后插入为段落。
-                        // 从后往前遍历索引，保持位置有效。
-                        const codeBlockPos = offset;
-                        intruders.reverse().forEach(({ node: intruder }) => {
-                            // 在（可能已被修改的）tr.doc 中重新解析入侵节点的位置
-                            let insertPos = -1;
-                            tr!.doc.forEach((n: PmNode, o: number) => {
-                                if (n.type.name === 'codeBlock' && o === codeBlockPos) {
-                                    n.forEach((child: PmNode, childOff: number) => {
-                                        if (!child.isInline && child.type.name !== 'text') {
-                                            insertPos = o + 1 + childOff;
-                                        }
-                                    });
-                                }
-                            });
-                            if (insertPos < 0) return;
-
-                            // 将入侵节点的文本内容提取为段落
+                        // 从后往前删除入侵节点，保持前面的偏移量有效
+                        const paragraphs: PmNode[] = [];
+                        for (let i = intruders.length - 1; i >= 0; i--) {
+                            const { node: intruder, childOffset } = intruders[i];
+                            const from = pos + 1 + childOffset;
+                            tr.delete(from, from + intruder.nodeSize);
                             const textContent = intruder.textContent;
-                            const newPara = textContent
+                            paragraphs.unshift(textContent
                                 ? paragraphType.create({}, schema.text(textContent))
-                                : paragraphType.create();
+                                : paragraphType.create());
+                        }
 
-                            // 从代码块中删除入侵节点
-                            tr!.delete(insertPos, insertPos + intruder.nodeSize);
-                            // 在代码块之后插入新段落
-                            const afterCodeBlock = codeBlockPos + tr!.doc.nodeAt(codeBlockPos)!.nodeSize;
-                            tr!.insert(afterCodeBlock, newPara);
-                        });
-                    });
+                        // 将提取出的内容作为段落插入到代码块之后
+                        const updatedBlock = tr.doc.nodeAt(pos);
+                        if (updatedBlock) {
+                            tr.insert(pos + updatedBlock.nodeSize, paragraphs);
+                        }
+                    }
 
                     return tr;
                 },

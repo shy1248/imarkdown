@@ -1,115 +1,14 @@
 /**
- * 主题工具函数的测试套件（纯逻辑，不依赖 VS Code API）。
- *
- * 由于原始函数位于 themeUtils.ts（导入了 `vscode`），
- * 此处重新实现纯函数（stripJsonComments、removeTrailingCommas、
- * cleanThemeJson、containsTokenColors、fallbackShikiTheme）进行单元测试。
+ * 主题解析纯函数的测试套件。直接测试 src/utils/themeJson.ts 的真实实现。
  */
 import * as assert from 'assert';
-
-// ── 来自 themeUtils.ts 的纯函数重新实现 ─────────────────────────────────────
-
-function stripJsonComments(raw: string): string {
-    let output = '';
-    let inString = false;
-    let stringChar = '';
-    let escaped = false;
-    let inLineComment = false;
-    let inBlockComment = false;
-
-    for (let i = 0; i < raw.length; i += 1) {
-        const char = raw[i];
-        const nextChar = i + 1 < raw.length ? raw[i + 1] : '';
-        if (inLineComment) {
-            if (char === '\n') { inLineComment = false; output += char; }
-            continue;
-        }
-        if (inBlockComment) {
-            if (char === '*' && nextChar === '/') { inBlockComment = false; i += 1; }
-            continue;
-        }
-        if (inString) {
-            output += char;
-            if (escaped) { escaped = false; }
-            else if (char === '\\') { escaped = true; }
-            else if (char === stringChar) { inString = false; stringChar = ''; }
-            continue;
-        }
-        if (char === '/' && nextChar === '/') { inLineComment = true; i += 1; continue; }
-        if (char === '/' && nextChar === '*') { inBlockComment = true; i += 1; continue; }
-        if (char === '"' || char === '\'') { inString = true; stringChar = char; output += char; continue; }
-        output += char;
-    }
-    return output;
-}
-
-function removeTrailingCommas(raw: string): string {
-    let output = '';
-    let inString = false;
-    let stringChar = '';
-    let escaped = false;
-
-    for (let i = 0; i < raw.length; i += 1) {
-        const char = raw[i];
-        if (inString) {
-            output += char;
-            if (escaped) { escaped = false; }
-            else if (char === '\\') { escaped = true; }
-            else if (char === stringChar) { inString = false; stringChar = ''; }
-            continue;
-        }
-        if (char === '"' || char === '\'') { inString = true; stringChar = char; output += char; continue; }
-        if (char === ',') {
-            let j = i + 1;
-            while (j < raw.length && /\s/.test(raw[j])) { j += 1; }
-            const nextNonWhitespace = j < raw.length ? raw[j] : '';
-            if (nextNonWhitespace === '}' || nextNonWhitespace === ']') continue;
-        }
-        output += char;
-    }
-    return output;
-}
-
-function cleanThemeJson(raw: string): string {
-    return removeTrailingCommas(stripJsonComments(raw));
-}
-
-function containsTokenColors(theme: any): boolean {
-    if (!theme || typeof theme !== 'object') return false;
-    if (Array.isArray(theme.settings) && theme.settings.length > 0) return true;
-    if (Array.isArray(theme.tokenColors) && theme.tokenColors.length > 0) return true;
-    return false;
-}
-
-function fallbackShikiTheme(themeKind: string): object {
-    const isLight = themeKind === 'light' || themeKind === 'high-contrast-light';
-    const baseForeground = isLight ? '#333333' : '#d4d4d4';
-    const defaultColors = {
-        comment: isLight ? '#6a9955' : '#6a9955',
-        string: isLight ? '#a31515' : '#ce9178',
-        keyword: isLight ? '#0000ff' : '#c586c0',
-        number: isLight ? '#098658' : '#b5cea8',
-        function: isLight ? '#795e26' : '#dcdcaa',
-        type: isLight ? '#267f99' : '#4ec9b0',
-        variable: isLight ? '#001080' : '#9cdcfe',
-        punctuation: baseForeground,
-    };
-    return {
-        name: isLight ? 'imarkdown-fallback-light' : 'imarkdown-fallback-dark',
-        type: isLight ? 'light' : 'dark',
-        colors: {},
-        tokenColors: [
-            { scope: ['comment'], settings: { foreground: defaultColors.comment } },
-            { scope: ['string'], settings: { foreground: defaultColors.string } },
-            { scope: ['keyword', 'storage', 'modifier'], settings: { foreground: defaultColors.keyword } },
-            { scope: ['constant.numeric'], settings: { foreground: defaultColors.number } },
-            { scope: ['entity.name.function'], settings: { foreground: defaultColors.function } },
-            { scope: ['entity.name.type', 'support.type'], settings: { foreground: defaultColors.type } },
-            { scope: ['variable', 'identifier'], settings: { foreground: defaultColors.variable } },
-            { scope: ['punctuation', 'meta.brace'], settings: { foreground: defaultColors.punctuation } },
-        ],
-    };
-}
+import {
+    cleanThemeJson,
+    containsTokenColors,
+    fallbackShikiTheme,
+    removeTrailingCommas,
+    stripJsonComments,
+} from '../utils/themeJson';
 
 // ── 测试 ────────────────────────────────────────────────────────────────────
 
@@ -226,6 +125,12 @@ describe('cleanThemeJson', () => {
         const input = '{"name": "test"}';
         const result = cleanThemeJson(input);
         assert.strictEqual(JSON.parse(result).name, 'test');
+    });
+
+    it('应去除 UTF-8 BOM（Windows 保存的主题文件）', () => {
+        const input = '\uFEFF{"name": "bom-theme"}';
+        const result = cleanThemeJson(input);
+        assert.strictEqual(JSON.parse(result).name, 'bom-theme');
     });
 });
 

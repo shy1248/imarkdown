@@ -1,7 +1,7 @@
 /**
  * 注册所有来自 VS Code 扩展宿主的消息处理器，集中管理消息分发逻辑。
  */
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { Editor } from '@tiptap/core';
 import { Selection } from '@tiptap/pm/state';
 import { updateTheme, getHighlighter, onHighlighterReady } from '../editor/code/codeHighlight';
@@ -96,13 +96,10 @@ export function useVSCodeMessages({
             onMessage('editorLayoutChanged', (msg) => {
                 const layoutEl = document.getElementById('editor-layout-style');
                 if (layoutEl) {
+                    // 扩展宿主已保证取值区间，这里仅做类型兜底
                     const maxW = msg.maxWidth || '100%';
-                    const minW = typeof msg.minWidth === 'number'
-                        ? `${msg.minWidth < 800 ? 800 : msg.minWidth > 1200 ? 1200 : msg.minWidth}px`
-                        : (msg.minWidth || '800px');
-                    const pad = typeof msg.padding === 'number'
-                        ? `${msg.padding < 50 ? 50 : msg.padding > 100 ? 100 : msg.padding}px`
-                        : (msg.padding || '50px');
+                    const minW = typeof msg.minWidth === 'number' ? `${msg.minWidth}px` : (msg.minWidth || '800px');
+                    const pad = typeof msg.padding === 'number' ? `${msg.padding}px` : (msg.padding || '50px');
                     layoutEl.textContent = `#editor { max-width: ${maxW}; min-width: ${minW}; margin: 0 auto; padding: 0 ${pad}; box-sizing: border-box; }`;
                 }
                 // 将行高作为 CSS 自定义属性传播
@@ -218,10 +215,10 @@ export function useVSCodeMessages({
                 }, 50);
             }),
 
-            onMessage('requestExportHtml', async () => {
+            onMessage('requestExportHtml', async (msg) => {
                 if (!editorRef.current) return;
                 const html = await getExportHtml(editorRef.current);
-                postMessage({ type: 'exportHtmlResponse', html });
+                postMessage({ type: 'exportHtmlResponse', html, requestId: msg.requestId });
             }),
 
             onMessage('scrollToHeading', (msg) => {

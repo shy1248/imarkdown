@@ -1,9 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { extensionState, setState, clearState, normalizeEol } from './utils/extensionState';
+import { extensionState, setState, clearState } from './utils/extensionState';
+import { normalizeEol, toDocumentEol } from './utils/textUtils';
+import { clampMinWidth, clampPadding, getLayoutSpacing } from './utils/editorLayout';
 import { getThemeKind, getVSCodeThemeForShiki } from './utils/themeUtils';
 import { getHtmlForWebview } from './webviewHtml';
 import { registerMessageHandler } from './messageHandler';
+import { sendLanguageLabelConfig, sendLineNumberConfig } from './utils/editorConfigMessages';
 
 export class IMarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     public static register(context: vscode.ExtensionContext): vscode.Disposable {
@@ -106,16 +109,15 @@ export class IMarkdownEditorProvider implements vscode.CustomTextEditorProvider 
         handleFocusChange(webviewPanel);
         webviewPanel.onDidChangeViewState((e) => handleFocusChange(e.webviewPanel));
 
-        // 立即发送 baseUri；文档内容在 webview 发送 'initialized' 消息后响应发送。
+        // 文档内容在 webview 发送 'initialized' 后响应发送
         webviewPanel.webview.postMessage({ type: 'baseUriChanged', baseUri: baseWebviewUri });
-        // 发送初始行号配置
         sendLineNumberConfig(webviewPanel);
-        // 发送初始语言标签配置
         sendLanguageLabelConfig(webviewPanel);
 
         // --- 内部辅助函数 ---
 
-        function handleFocusChange(panel: vscode.WebviewPanel) {            if (panel.active) {
+        function handleFocusChange(panel: vscode.WebviewPanel) {
+            if (panel.active) {
                 setState(document, panel);
                 panel.webview.postMessage({ type: 'requestTocRefresh' });
             } else if (panel === extensionState.activeWebviewPanel) {
@@ -140,8 +142,7 @@ export class IMarkdownEditorProvider implements vscode.CustomTextEditorProvider 
             if (isFromWebview) isFromWebview.value = false;
             return Promise.resolve();
         }
-        const eolChars = document.eol === 2 ? '\r\n' : '\n';
-        text = text.replace(/(?:\r\n|\r|\n)/g, eolChars);
+        text = toDocumentEol(text, document.eol);
 
         const fileText = document.getText();
         if (text === fileText) {
@@ -183,34 +184,15 @@ function sendLayoutConfig(panel: vscode.WebviewPanel) {
 
     const vscodeLineHeight = editorCfg.get<number>('lineHeight', 0);
     const lineHeight = vscodeLineHeight > 0 ? vscodeLineHeight : 1.5;
-
-    const layoutMap: Record<string, { inline: string; block: string }> = {
-        compact:  { inline: '0.3em', block: '0.5em'  },
-        moderate: { inline: '0.5em', block: '0.85em' },
-        loose:    { inline: '0.8em', block: '1.3em'  },
-    };
-    const layout = cfg.get<string>('layout', 'moderate');
-    const spacing = layoutMap[layout] ?? layoutMap['moderate'];
+    const spacing = getLayoutSpacing(cfg.get<string>('layout', 'moderate'));
 
     panel.webview.postMessage({
         type: 'editorLayoutChanged',
         maxWidth: '100%',
-        minWidth: cfg.get<number>('minWidth', 600),
+        minWidth: clampMinWidth(cfg.get<number>('minWidth')),
         lineHeight,
-        padding: cfg.get<number>('padding', 30),
+        padding: clampPadding(cfg.get<number>('padding')),
         inlineSpacing: spacing.inline,
-        blockSpacing:  spacing.block,
+        blockSpacing: spacing.block,
     });
-}
-
-function sendLineNumberConfig(panel: vscode.WebviewPanel) {
-    const cfg = vscode.workspace.getConfiguration('imarkdown.editor');
-    const codeLineNumbers = cfg.get<boolean>('codeLineNumbers', false);
-    panel.webview.postMessage({ type: 'lineNumberConfigChanged', codeLineNumbers });
-}
-
-function sendLanguageLabelConfig(panel: vscode.WebviewPanel) {
-    const cfg = vscode.workspace.getConfiguration('imarkdown.editor');
-    const hideCodeLanguageLabel = cfg.get<boolean>('hideCodeLanguageLabel', false);
-    panel.webview.postMessage({ type: 'languageLabelConfigChanged', hideCodeLanguageLabel });
 }

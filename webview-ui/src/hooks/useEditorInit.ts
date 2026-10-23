@@ -7,7 +7,7 @@ import { Editor } from '@tiptap/core';
 import { migrateMathStrings } from '@tiptap/extension-mathematics';
 import { Extensions } from '@tiptap/core';
 import { updateTheme, getPendingTheme, getHighlighter } from '../editor/code/codeHighlight';
-import { updateImageUrls, sendToc } from '../editor/editorUtils';
+import { updateImageUrls, sendToc, getEditorMarkdown } from '../editor/editorUtils';
 import { notifySelectionState, resetSelectionState } from '../editor/selectionState';
 import { postMessage, getState } from '../vscode';
 import { broadcastAllPanelsClose } from '../editor/editorPanelHelper';
@@ -128,10 +128,7 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
                 suppressRef.current = false;
                 return;
             }
-            const storage = newEditor.storage as any;
-            const rawMarkdown: string = storage?.markdown?.getMarkdown
-                ? storage.markdown.getMarkdown()
-                : newEditor.getText();
+            const rawMarkdown = getEditorMarkdown(newEditor);
 
             // 立即更新 lastMarkdownRef，防抖发送 webviewChanged 消息
             lastMarkdownRef.current = rawMarkdown;
@@ -163,9 +160,10 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
 
         // 图片 MutationObserver——防抖，避免每次按键都进行大量 DOM 扫描
         const root = newEditor.view?.dom;
+        let imageObserver: MutationObserver | null = null;
+        let imageRafId = 0;
         if (root) {
-            let imageRafId = 0;
-            const observer = new MutationObserver((mutations) => {
+            imageObserver = new MutationObserver((mutations) => {
                 const hasImageChange = mutations.some(m =>
                     m.type === 'childList' &&
                     (Array.from(m.addedNodes).some(n => n.nodeName === 'IMG' || (n as HTMLElement).querySelector?.('img')) ||
@@ -175,10 +173,11 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
                 if (imageRafId) cancelAnimationFrame(imageRafId);
                 imageRafId = requestAnimationFrame(() => {
                     imageRafId = 0;
+                    if (newEditor.isDestroyed) return;
                     updateImageUrls(newEditor.view);
                 });
             });
-            observer.observe(root, { childList: true, subtree: true });
+            imageObserver.observe(root, { childList: true, subtree: true });
         }
 
         editorRef.current = newEditor;
@@ -214,11 +213,7 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
                         }
                         tr.setMeta('addToHistory', false);
                         ed.view.dispatch(tr);
-                        const storage = ed.storage as any;
-                        const rawMarkdown: string = storage?.markdown?.getMarkdown
-                            ? storage.markdown.getMarkdown()
-                            : ed.getText();
-                        lastMarkdownRef.current = rawMarkdown;
+                        lastMarkdownRef.current = getEditorMarkdown(ed);
                     }
                 }
                 postMessage({ type: 'webviewChanged', text: lastMarkdownRef.current });
@@ -310,6 +305,10 @@ export function useEditorInit(extensions: Extensions): UseEditorInitResult {
             window.removeEventListener('focus', resetStaleCursor);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('scroll', handleScroll, true);
+            if (tocTimer) clearTimeout(tocTimer);
+            if (scrollTimer) clearTimeout(scrollTimer);
+            if (imageRafId) cancelAnimationFrame(imageRafId);
+            imageObserver?.disconnect();
             resizeObserver?.disconnect();
             resetSelectionState();
             newEditor.destroy();

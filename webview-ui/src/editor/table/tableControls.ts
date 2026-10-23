@@ -579,6 +579,8 @@ export const TableControls = Extension.create({
     addProseMirrorPlugins() {
         const editor = this.editor;
         const attachedWrappers = new WeakSet<HTMLElement>();
+        // 每个 tableWrapper 的 DOM 变更观察器，销毁插件时统一断开，避免泄漏
+        const tableObservers = new Map<HTMLElement, MutationObserver>();
         // 记录当前显示控件的 tableWrapper
         let activeWrapper: HTMLElement | null = null;
         let hideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -626,6 +628,7 @@ export const TableControls = Extension.create({
                     subtree: true,
                     childList: true,
                 });
+                tableObservers.set(tableWrapper, resizeObserver);
             }
 
             // 通过 td/th 的 mouseover 事件追踪悬停单元格
@@ -1023,6 +1026,16 @@ export const TableControls = Extension.create({
 
                     return {
                         update(view: EditorView) {
+                            // 清理已从文档中移除的表格的观察器
+                            for (const [wrapper, observer] of tableObservers) {
+                                if (!view.dom.contains(wrapper)) {
+                                    observer.disconnect();
+                                    tableObservers.delete(wrapper);
+                                    hoveredCellCache.delete(wrapper);
+                                    if (activeWrapper === wrapper) activeWrapper = null;
+                                }
+                            }
+
                             view.dom.querySelectorAll('.tableWrapper').forEach((el) => {
                                 if (el instanceof HTMLElement) {
                                     attachListeners(el, view);
@@ -1055,7 +1068,7 @@ export const TableControls = Extension.create({
                                         activeWrapper = null;
                                     }
                                 } else {
-                                        // 无缓存或表格已不存在，清理控件
+                                    // 无缓存或表格已不存在，清理控件
                                     removeControls(wrapper);
                                     activeWrapper = null;
                                 }
@@ -1064,7 +1077,9 @@ export const TableControls = Extension.create({
                         destroy() {
                             window.removeEventListener('contextmenu', onContextMenu, true);
                             if (hideTimer) clearTimeout(hideTimer);
-                            editor.view.dom.querySelectorAll('[data-table-controls]').forEach(el => el.remove());
+                            tableObservers.forEach((observer) => observer.disconnect());
+                            tableObservers.clear();
+                            view.dom.querySelectorAll('[data-table-controls]').forEach(el => el.remove());
                         },
                     };
                 },

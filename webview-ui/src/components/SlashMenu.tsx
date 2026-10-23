@@ -14,7 +14,8 @@ interface SlashMenuProps {
 
 export function SlashMenu({ visible, query, coords, activeIndex, onSelect }: SlashMenuProps) {
     const menuRef = useRef<HTMLDivElement>(null);
-    const items = filterSlashCommands(query);
+    // filterSlashCommands 每次返回新数组，用 useMemo 固定引用避免分组每次重算
+    const items = useMemo(() => filterSlashCommands(query), [query]);
 
     // 按原始顺序分组
     const grouped = useMemo(() => {
@@ -45,7 +46,8 @@ export function SlashMenu({ visible, query, coords, activeIndex, onSelect }: Sla
 
     const style: React.CSSProperties = {
         left: coords.left,
-        top: coords.top,
+        // 与 useMenuPosition 的最终定位保持一致（下方 4px），避免首帧跳动
+        top: coords.bottom + 4,
     };
 
     // 平铺索引计数器，用于计算激活状态

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { clampMinWidth, clampPadding, getLayoutSpacing } from './utils/editorLayout';
 
 /**
  * 构建编辑器 webview 的静态 HTML。
@@ -29,20 +30,10 @@ export function getHtmlForWebview(
     const vscodeLineHeight = editorConfig.get<number>('lineHeight', 0);
     const lineHeight = vscodeLineHeight > 0 ? vscodeLineHeight : 1.5;
 
-    const layoutMap: Record<string, { inline: string; block: string }> = {
-        // inline = 段落/列表项间距（正文节奏）
-        // block  = 块级元素间距（pre、blockquote、figure、math、hr、table、h3）
-        compact:  { inline: '0.3em', block: '0.5em'  },
-        moderate: { inline: '0.5em', block: '0.85em' },
-        loose:    { inline: '0.8em', block: '1.3em'  },
-    };
-    const layout = imarkdownConfig.get<string>('layout', 'moderate');
-    const spacing = layoutMap[layout] ?? layoutMap['moderate'];
-    const blockS  = spacing.block;    // blockquote、pre、figure、math、hr、table、h3
-    let minWidth = imarkdownConfig.get<number>('minWidth', 600);
-    let padding = imarkdownConfig.get<number>('padding', 50);
-    minWidth = minWidth < 800 ? 800 : minWidth > 1200 ? 1200 : minWidth;
-    padding = padding < 50 ? 50 : padding > 100 ? 100 : padding;
+    const spacing = getLayoutSpacing(imarkdownConfig.get<string>('layout', 'moderate'));
+    const blockS = spacing.block;
+    const minWidth = clampMinWidth(imarkdownConfig.get<number>('minWidth'));
+    const padding = clampPadding(imarkdownConfig.get<number>('padding'));
 
     const nonce = getNonce();
     const cspSource = webview.cspSource;
@@ -127,7 +118,9 @@ export function getHtmlForWebview(
         // 由于 stopImmediatePropagation 会终止后续所有监听器（包括
         // ProseMirror 自身的冒泡阶段 keydown 处理器），无法依赖 ProseMirror
         // 的事件链。因此直接调用 window.__imarkdownTabHandler——由
-        // IndentOutdent 扩展注册的回调——来直接执行缩进/反缩进操作。
+        // IndentOutdent 扩展注册的回调——来执行缩进/反缩进（列表、引用块）
+        // 或代码块内插入/删除缩进空格。回调返回 false 时（普通段落）保持
+        // 事件已被拦截的状态，避免焦点跳出编辑器。
         document.addEventListener('keydown', function(e) {
             if (e.key !== 'Tab') return;
             if (typeof window.__imarkdownTabHandler !== 'function') return;

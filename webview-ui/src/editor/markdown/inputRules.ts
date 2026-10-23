@@ -198,7 +198,9 @@ export const MarkdownImageInputRule = Extension.create({
                         title: string | null;
                     }[] = [];
                     newState.doc.descendants((node: PmNode, pos: number) => {
-                        if (node.type.name === 'codeBlock' || node.type.name === 'code') return false;
+                        if (node.type.name === 'codeBlock') return false;
+                        // 行内代码是 mark（不是节点类型），需按标记判断
+                        if (node.marks.some(m => m.type.name === 'code')) return;
                         if (!node.isText) return;
                         const text = node.text!;
                         imagePattern.lastIndex = 0;
@@ -290,7 +292,9 @@ export const MarkdownLinkInputRule = Extension.create({
                     let changed = false;
                     newState.doc.descendants((node: PmNode, pos: number) => {
                         // 代码块和内联代码中不做转换
-                        if (node.type.name === 'codeBlock' || node.type.name === 'code') return false;
+                        if (node.type.name === 'codeBlock') return false;
+                        // 行内代码是 mark（不是节点类型），需按标记判断
+                        if (node.marks.some(m => m.type.name === 'code')) return;
                         if (!node.isText) return;
                         const text = node.text!;
                         linkPattern.lastIndex = 0;

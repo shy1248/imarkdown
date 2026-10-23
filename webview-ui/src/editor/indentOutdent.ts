@@ -82,16 +82,36 @@ export const IndentOutdent = Extension.create({
             const { $from } = editor.state.selection;
             for (let d = $from.depth; d >= 0; d--) {
                 const name = $from.node(d).type.name;
+                if (name === 'codeBlock') {
+                    // 代码块内：Tab 插入两个空格，Shift+Tab 移除行首最多两个空格。
+                    // webviewHtml.ts 的 Tab 拦截器始终阻止默认行为（防止焦点被抢走），
+                    // 因此这里必须自行处理，否则代码块内无法缩进。
+                    if (shiftKey) {
+                        const lineStart = $from.start(d);
+                        const textBefore = editor.state.doc.textBetween(lineStart, $from.pos, '\n', '\n');
+                        const lineStartPos = lineStart + textBefore.lastIndexOf('\n') + 1;
+                        const indentText = editor.state.doc.textBetween(lineStartPos, $from.pos, '\n', '\n');
+                        const removable = indentText.length - indentText.trimStart().length;
+                        if (removable > 0) {
+                            editor.view.dispatch(
+                                editor.state.tr.delete(lineStartPos, lineStartPos + Math.min(2, removable)),
+                            );
+                        }
+                    } else {
+                        editor.view.dispatch(editor.state.tr.insertText('  '));
+                    }
+                    return true;
+                }
                 if (name === 'listItem' || name === 'taskItem' || name === 'blockquote') {
                     if (shiftKey) {
                         editor.commands.outdent();
                     } else {
                         editor.commands.indent();
                     }
-                    return true; // 已处理——webviewHtml.ts 可安全 stopImmediatePropagation
+                    return true; // 已处理
                 }
             }
-            return false; // 不在可缩进节点内——让事件继续传递到 ProseMirror
+            return false; // 不在可缩进节点内
         };
 
         // 同时直接在编辑器 DOM 元素上注册（捕获阶段）。

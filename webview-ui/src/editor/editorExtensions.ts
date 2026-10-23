@@ -49,10 +49,8 @@ import {
 } from './markdown/inputRules';
 import { IndentOutdent } from './indentOutdent';
 import { SelectAllDocument } from './selectAll';
-import {
-    insertMarkdownText,
-    serializeSelectionAsMarkdown,
-} from './editorUtils';
+import { insertMarkdownText, serializeSelectionAsMarkdown } from './editorUtils';
+import { t } from '../i18n';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 标题折叠：装饰构建
@@ -65,14 +63,13 @@ import {
 function createFoldWidget(
     pos: number,
     collapsed: boolean,
-    level: number,
 ): () => HTMLElement {
     return () => {
         const btn = document.createElement('button');
         btn.className = 'heading-fold-btn';
         btn.setAttribute('data-collapsed', String(collapsed));
         btn.setAttribute('data-heading-pos', String(pos));
-        btn.setAttribute('aria-label', collapsed ? '展开' : '折叠');
+        btn.setAttribute('aria-label', t(collapsed ? 'heading.unfold' : 'heading.fold'));
         btn.setAttribute('contenteditable', 'false');
         btn.textContent = collapsed ? '▸' : '▾';
         return btn;
@@ -97,7 +94,7 @@ function buildFoldDecorations(doc: import('@tiptap/pm/model').Node): DecorationS
             decorations.push(
                 Decoration.widget(
                     offset + 1, // 标题内容起始位置
-                    createFoldWidget(offset, collapsed, level),
+                    createFoldWidget(offset, collapsed),
                     { side: -1, key: `fold-${offset}-${collapsed ? 1 : 0}` },
                 ),
             );

@@ -112,6 +112,23 @@ export default function App() {
     // DOM input 场景下的 apply 回调（由桥接注册，优先于 PM 场景）
     const pathCompInputApplyRef = useRef<((item: PathCompletionItem) => void) | null>(null);
 
+    // 路径补全菜单的导航/确认逻辑（ProseMirror 与 DOM input 两种场景共用）
+    const pathCompNavigate = useCallback((direction: number) => {
+        setPathCompActiveIndex((prev) => {
+            const len = pathCompItemsRef.current.length;
+            if (len === 0) return 0;
+            return (prev + direction + len) % len;
+        });
+    }, []);
+
+    const pathCompConfirm = useCallback(() => {
+        const items = pathCompItemsRef.current;
+        const idx = pathCompActiveIndexRef.current;
+        if (items.length === 0) return;
+        const item = idx >= 0 && idx < items.length ? items[idx] : items[0];
+        applyPathCompletionRef.current(item);
+    }, []);
+
     // 供 ProseMirror 插件使用的稳定回调
     const pathCompCallbacks = useMemo<PathCompletionCallbacks>(() => ({
         onShow: (coords, prefix) => {
@@ -136,24 +153,12 @@ export default function App() {
             setPathCompActiveIndex(0);
             postMessage({ type: 'requestPathCompletion', prefix, requestId: id });
         },
-        onNavigate: (direction) => {
-            setPathCompActiveIndex((prev) => {
-                const len = pathCompItemsRef.current.length;
-                if (len === 0) return 0;
-                return (prev + direction + len) % len;
-            });
-        },
-        onConfirm: () => {
-            const items = pathCompItemsRef.current;
-            const idx = pathCompActiveIndexRef.current;
-            if (items.length === 0) return;
-            const item = idx >= 0 && idx < items.length ? items[idx] : items[0];
-            applyPathCompletionRef.current(item);
-        },
+        onNavigate: (direction) => pathCompNavigate(direction),
+        onConfirm: () => pathCompConfirm(),
         isVisible: () => pathCompVisibleRef.current,
         getRange: () => pathCompRangeRef.current,
         setRange: (range) => { pathCompRangeRef.current = range; },
-    }), []);
+    }), [pathCompNavigate, pathCompConfirm]);
 
     // ── 扩展（只创建一次，避免重复初始化） ────────────────────────────────────
     const { extensions } = useMemo(() => createExtensions({
@@ -247,22 +252,13 @@ export default function App() {
                 return pathCompVisibleRef.current;
             },
             navigate(direction) {
-                setPathCompActiveIndex((prev) => {
-                    const len = pathCompItemsRef.current.length;
-                    if (len === 0) return 0;
-                    return (prev + direction + len) % len;
-                });
+                pathCompNavigate(direction);
             },
             confirm() {
-                const items = pathCompItemsRef.current;
-                const idx = pathCompActiveIndexRef.current;
-                if (items.length === 0) return;
-                const item = idx >= 0 && idx < items.length ? items[idx] : items[0];
-                applyPathCompletionRef.current(item);
+                pathCompConfirm();
             },
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [pathCompNavigate, pathCompConfirm]);
 
     // ── 斜杠命令执行 ──────────────────────────────────────────────────────────
     const executeSlashCommand = useCallback((cmdId: string) => {

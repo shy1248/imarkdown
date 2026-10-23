@@ -2,6 +2,7 @@ import { InlineMath, BlockMath } from '@tiptap/extension-mathematics';
 import katex from 'katex';
 import { t } from '../../i18n';
 import { generatePanelId, broadcastPanelOpen, onOtherPanelOpen, isPanelCancelKey, isPanelSaveKey, onAllPanelsClose } from '../editorPanelHelper';
+import { createInlineEditToolbar } from '../shared/inlineEditToolbar';
 
 // ---------------------------------------------------------------------------
 // 共享：创建数学公式内联编辑面板（在文档流中显示）
@@ -33,49 +34,13 @@ function createMathEditor(opts: {
     input.value = opts.latex;
     panel.appendChild(input);
 
-    // 按钮栏
-    const btnBar = document.createElement('div');
-    btnBar.classList.add('inline-edit-buttons');
-
-    const applyBtn = document.createElement('button');
-    applyBtn.textContent = '✓';
-    applyBtn.title = t('Confirm (Enter)');
-    applyBtn.classList.add('inline-edit-btn', 'inline-edit-btn-apply');
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = '✕';
-    cancelBtn.title = t('Cancel (Esc)');
-    cancelBtn.classList.add('inline-edit-btn', 'inline-edit-btn-cancel');
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = t('math.delete');
-    deleteBtn.title = t('math.delete');
-    deleteBtn.classList.add('inline-edit-btn', 'inline-edit-btn-unlink');
-    deleteBtn.style.marginLeft = 'auto';
-
-    btnBar.appendChild(applyBtn);
-    btnBar.appendChild(cancelBtn);
-    btnBar.appendChild(deleteBtn);
-    panel.appendChild(btnBar);
-
-    // 事件处理
-    applyBtn.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        opts.onApply(input.value);
-    });
-
-    cancelBtn.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        opts.onCancel();
-    });
-
-    deleteBtn.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        opts.onDelete();
-    });
+    // 按钮栏：✓  ✕  |  删除公式（最右侧）
+    panel.appendChild(createInlineEditToolbar({
+        onApply: () => opts.onApply(input.value),
+        onCancel: () => opts.onCancel(),
+        onDelete: opts.onDelete,
+        deleteLabel: t('math.delete'),
+    }));
 
     input.addEventListener('keydown', ((e: KeyboardEvent) => {
         e.stopPropagation();
@@ -267,6 +232,8 @@ export const CustomInlineMath = InlineMath.extend({
                     return true;
                 },
                 destroy() {
+                    // 编辑面板打开时节点被销毁，需取消全局面板监听
+                    if (isEditing) hideEditor(true);
                     wrapper.removeEventListener('click', handleClick);
                     wrapper.removeEventListener('dblclick', handleDblClick);
                     window.removeEventListener('math-edit-request', handleEditRequest);
@@ -486,6 +453,8 @@ export const CustomBlockMath = BlockMath.extend({
                     return true;
                 },
                 destroy() {
+                    // 编辑面板打开时节点被销毁，需取消全局面板监听
+                    if (isEditing) hideEditor(true);
                     wrapper.removeEventListener('click', handleClick);
                     wrapper.removeEventListener('dblclick', handleDblClick);
                     window.removeEventListener('math-edit-request', handleEditRequest);

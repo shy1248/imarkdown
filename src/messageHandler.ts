@@ -3,6 +3,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { outlineProvider, normalizeEol } from './utils/extensionState';
 import { getThemeKind, getVSCodeThemeForShiki } from './utils/themeUtils';
+import { formatTimestamp } from './utils/timestampUtils';
+import { buildCompletionValue, resolveCompletionQuery } from './utils/pathCompletion';
+import { sendLanguageLabelConfig, sendLineNumberConfig } from './utils/editorConfigMessages';
+import { hasUrlScheme } from './utils/pathUtils';
+import { i18n } from './utils/i18n';
 
 /**
  * 传递给消息处理器的上下文信息。
@@ -29,16 +34,6 @@ export function registerMessageHandler(ctx: MessageContext): void {
                 ctx.lastWebviewContent.value = e.text;
                 ctx.lastWebviewChangeTime.value = Date.now();
                 await ctx.updateTextDocument(e.text);
-                return;
-
-            // webview 中按 Ctrl+S：先刷新飞行中的内容，再触发真正的保存。
-            case 'requestSave':
-                await ctx.updateTextDocument(ctx.lastWebviewContent.value);
-                vscode.commands.executeCommand('workbench.action.files.save');
-                return;
-
-            case 'webviewAboutToSave':
-                ctx.lastWebviewChangeTime.value = Date.now();
                 return;
 
             // 编辑器选区状态：非空时隐藏 webview 右键菜单中的
@@ -85,23 +80,17 @@ export function registerMessageHandler(ctx: MessageContext): void {
                     });
                     ctx.webviewPanel.webview.postMessage({
                         type: 'documentChanged',
-                        text: ctx.document.getText().replace(/(?:\r\n|\r|\n)/g, '\n'),
+                        // 记录首次发送的内容，供外部保存/刷新时比较，避免把空串当作最新内容
+                        text: normalizeEol(ctx.document.getText()),
                     });
+                    ctx.lastWebviewContent.value = normalizeEol(ctx.document.getText());
                     ctx.webviewPanel.webview.postMessage({
                         type: 'baseUriChanged',
                         baseUri: ctx.baseWebviewUri,
                     });
-                    // 在此发送行号配置（editorProvider 中的早期调用之外），
-                    // 确保 webview 消息处理器完全注册后也能正确应用该设置，
-                    // 即使 VS Code 在重启时恢复已打开的编辑器。
-                    const codeLineNumbers = vscode.workspace
-                        .getConfiguration('imarkdown.editor')
-                        .get<boolean>('codeLineNumbers', false);
-                    ctx.webviewPanel.webview.postMessage({ type: 'lineNumberConfigChanged', codeLineNumbers });
-                    const hideCodeLanguageLabel = vscode.workspace
-                        .getConfiguration('imarkdown.editor')
-                        .get<boolean>('hideCodeLanguageLabel', false);
-                    ctx.webviewPanel.webview.postMessage({ type: 'languageLabelConfigChanged', hideCodeLanguageLabel });
+                    // 在消息处理器完全注册后再补发一次，覆盖 VS Code 恢复已打开编辑器的场景
+                    sendLineNumberConfig(ctx.webviewPanel);
+                    sendLanguageLabelConfig(ctx.webviewPanel);
                 });
                 return;
 
@@ -130,10 +119,13 @@ export function registerMessageHandler(ctx: MessageContext): void {
             case 'openLink': {
                 if (!e.href) return;
                 const href: string = e.href;
-                // 绝对 URL（http/https/mailto 等）直接打开；
-                // 相对路径先解析为相对文档目录的绝对路径。
+                // 绝对 URL（http/https/mailto/file 等）直接打开；
+                // 相对路径与 Windows 盘符路径先解析为绝对文件路径。
+                // 仅允许常见安全协议，避免把 javascript:/data: 等交给系统处理。
                 let uri: vscode.Uri;
-                if (/^[a-z][a-z0-9+\-.]*:/i.test(href)) {
+                if (hasUrlScheme(href)) {
+                    const scheme = (href.match(/^([a-z][a-z0-9+\-.]*):/i)?.[1] ?? '').toLowerCase();
+                    if (!['http', 'https', 'mailto', 'file'].includes(scheme)) return;
                     uri = vscode.Uri.parse(href);
                 } else {
                     const docDir = path.dirname(ctx.document.uri.fsPath);
@@ -171,41 +163,7 @@ function handlePathCompletion(ctx: MessageContext, prefix: string, requestId: st
     try {
         const docDir = path.dirname(ctx.document.uri.fsPath);
         const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? '';
-
-        // 将开头的 `~/` 展开为用户主目录；裸 `~` 视为 `~/`（列出主目录内容）。
-        let expandedPrefix: string;
-        if (prefix === '~') {
-            expandedPrefix = homeDir + '/';
-        } else if (prefix.startsWith('~/') || prefix.startsWith('~\\')) {
-            expandedPrefix = homeDir + prefix.slice(1);
-        } else {
-            expandedPrefix = prefix;
-        }
-
-        // 确定要列出的目录和用于过滤的部分文件名。
-        // 例如：prefix = "images/foo" → dir = "<docDir>/images", partial = "foo"
-        //       prefix = "./"         → dir = "<docDir>",          partial = ""
-        //       prefix = "../img"     → dir = "<docDir>/..",        partial = "img"
-        let rawDir: string;
-        let partial: string;
-
-        if (expandedPrefix === '' || expandedPrefix === './' || expandedPrefix === '.') {
-            rawDir = docDir;
-            partial = '';
-        } else {
-            const lastSlash = Math.max(expandedPrefix.lastIndexOf('/'), expandedPrefix.lastIndexOf('\\'));
-            if (lastSlash >= 0) {
-                const dirPart = expandedPrefix.slice(0, lastSlash + 1);
-                // 绝对路径（以 / 或盘符开头）不需要拼接 docDir
-                rawDir = path.isAbsolute(dirPart)
-                    ? path.normalize(dirPart)
-                    : path.resolve(docDir, dirPart);
-                partial = expandedPrefix.slice(lastSlash + 1).toLowerCase();
-            } else {
-                rawDir = docDir;
-                partial = expandedPrefix.toLowerCase();
-            }
-        }
+        const { rawDir, partial, dirPrefix } = resolveCompletionQuery(prefix, docDir, homeDir);
 
         if (!fs.existsSync(rawDir) || !fs.statSync(rawDir).isDirectory()) {
             ctx.webviewPanel.webview.postMessage({ type: 'pathCompletionResult', requestId, items: [] });
@@ -221,17 +179,7 @@ function handlePathCompletion(ctx: MessageContext, prefix: string, requestId: st
             if (partial && !entry.name.toLowerCase().startsWith(partial)) continue;
 
             const isDir = entry.isDirectory();
-            // 构建补全值：保留原始前缀（未展开的）最后一个斜杠之前的部分，再加上条目名称。
-            // 特殊情况：裸 `~`（无斜杠）应生成 `~/entry` 标签，
-            // 使后续补全请求仍携带 `~/` 前缀并被正确展开。
-            let dirPrefix: string;
-            if (prefix === '~' || prefix === '~\\') {
-                dirPrefix = '~/';
-            } else {
-                const origLastSlash = Math.max(prefix.lastIndexOf('/'), prefix.lastIndexOf('\\'));
-                dirPrefix = origLastSlash >= 0 ? prefix.slice(0, origLastSlash + 1) : '';
-            }
-            const value = dirPrefix + entry.name + (isDir ? '/' : '');
+            const value = buildCompletionValue(dirPrefix, entry.name, isDir);
             items.push({ label: value, isDir });
 
             if (items.length >= 20) break; // 最多返回 20 条
@@ -254,7 +202,7 @@ function handlePathCompletion(ctx: MessageContext, prefix: string, requestId: st
  */
 async function handleImageInsert(ctx: MessageContext): Promise<void> {
     const altText = await vscode.window.showInputBox({
-        prompt: '图片 Alt 文本',
+        prompt: i18n.t('insertImageAltPrompt'),
         value: 'Image',
     });
     if (altText === undefined) return;
@@ -369,41 +317,4 @@ function getUniqueFilePath(filePath: string): string {
         counter++;
     }
     return result;
-}
-
-export function formatTimestamp(
-  timestamp: number | string,
-  format: string = 'YYYY-MM-DD HH:mm:ss'
-): string {
-  const numTs = Number(timestamp);
-  if (isNaN(numTs)) {
-    console.warn('无效的时间戳:', timestamp);
-    return '';
-  }
-  let ts = numTs;
-  if (ts.toString().length === 10) {
-    ts *= 1000;
-  }
-  const date = new Date(ts);
-  if (date.toString() === 'Invalid Date') {
-    console.warn('时间戳转换失败:', timestamp);
-    return '';
-  }
-  const padZero = (num: number): string => num.toString().padStart(2, '0');
-  const year = date.getFullYear();
-  const month = padZero(date.getMonth() + 1);
-  const day = padZero(date.getDate());
-  const hours = padZero(date.getHours());
-  const minutes = padZero(date.getMinutes());
-  const seconds = padZero(date.getSeconds());
-  const week = ['日', '一', '二', '三', '四', '五', '六'][date.getDay()];
-
-  return format
-    .replace('YYYY', year.toString())
-    .replace('MM', month)
-    .replace('DD', day)
-    .replace('HH', hours)
-    .replace('mm', minutes)
-    .replace('ss', seconds)
-    .replace('WW', week);
 }

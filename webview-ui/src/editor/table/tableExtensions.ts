@@ -60,13 +60,11 @@ export const TableDeleteOnBackspace = Extension.create({
         const handleDelete = () => {
             if (!this.editor.isActive('table')) return false;
             const $from = this.editor?.state?.selection?.$from;
-            let tablePos = null;
             let tableNode = null;
             for (let depth = $from.depth; depth > 0; depth--) {
                 const node = $from.node(depth);
                 if (node.type.name === 'table') {
                     tableNode = node;
-                    tablePos = $from.before(depth);
                     break;
                 }
             }

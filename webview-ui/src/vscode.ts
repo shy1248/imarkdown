@@ -1,6 +1,32 @@
 // VS Code webview API wrapper
 
-const vscodeApi = (window as any).acquireVsCodeApi();
+interface VsCodeApi {
+  postMessage(message: any): void;
+  getState(): any;
+  setState(state: any): void;
+}
+
+/** 非 webview 环境（如单元测试）使用的空实现。 */
+function createFallbackApi(): VsCodeApi {
+  let state: any;
+  return {
+    postMessage: () => { /* no-op */ },
+    getState: () => state,
+    setState: (next: any) => { state = next; },
+  };
+}
+
+function acquireApi(): VsCodeApi {
+  try {
+    const acquire = (window as any).acquireVsCodeApi;
+    return typeof acquire === 'function' ? acquire.call(window) : createFallbackApi();
+  } catch {
+    // acquireVsCodeApi 只能调用一次；HMR 重新执行模块时回退到空实现
+    return createFallbackApi();
+  }
+}
+
+const vscodeApi = acquireApi();
 // Expose the API on window so the inline capture-phase script in webviewHtml.ts
 // can call postMessage before the module bundle is loaded.
 (window as any).__imarkdownVsCodeApi = vscodeApi;

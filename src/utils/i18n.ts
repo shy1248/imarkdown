@@ -14,6 +14,7 @@ i18n.init({
                 openInBrowser: "Open in Browser",
                 openBrowserError: "Failed to open in browser: {{ error }}",
                 noActiveEditor: "No active iMarkdown editor found. Please open a Markdown file with iMarkdown first.",
+                insertImageAltPrompt: "Image alt text",
             }
         },
         zh: {
@@ -24,6 +25,7 @@ i18n.init({
                 openInBrowser: "在浏览器中打开",
                 openBrowserError: "无法在浏览器中打开：{{ error }}",
                 noActiveEditor: "未找到活动的 iMarkdown 编辑器，请先使用 iMarkdown 打开一个 Markdown 文件。",
+                insertImageAltPrompt: "图片 Alt 文本",
             }
         },
     }

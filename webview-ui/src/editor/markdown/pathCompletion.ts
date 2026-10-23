@@ -11,6 +11,7 @@
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { hasUrlScheme } from '../shared/pathUtils';
 // PathCompletionItem 的权威定义在 shared/pathCompleter.ts，此处 re-export 保持外部导入路径不变
 export type { PathCompletionItem } from '../shared/domPathCompletion';
 
@@ -39,7 +40,7 @@ export interface PathCompletionCallbacks {
  *
  * 若光标不在此类槽内则返回 null。
  */
-function extractMarkdownLinkPrefix(
+export function extractMarkdownLinkPrefix(
     nodeText: string,
     cursorOffset: number,
 ): { prefix: string; prefixStart: number } | null {
@@ -80,10 +81,10 @@ function extractMarkdownLinkPrefix(
     // '(' 到光标之间的文本即为正在输入的 URL 前缀
     const prefix = textToCursor.slice(parenIdx + 1);
 
-    // 若前缀像 HTTP/S URL 或锚点则拒绝
+    // 若前缀像 HTTP/S URL、其他协议或锚点则拒绝（Windows 盘符除外）
     if (/^https?:\/\//i.test(prefix)) return null;
     if (prefix.startsWith('#')) return null;
-    if (/^[a-z][a-z0-9+\-.]*:/i.test(prefix)) return null; // 任意协议
+    if (hasUrlScheme(prefix)) return null;
 
     return { prefix, prefixStart: parenIdx + 1 };
 }

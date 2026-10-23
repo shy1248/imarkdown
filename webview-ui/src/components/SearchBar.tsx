@@ -3,6 +3,7 @@ import { Editor } from '@tiptap/core';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { t } from '../i18n';
+import { getScrollParent } from '../editor/editorUtils';
 
 const searchPluginKey = new PluginKey('searchHighlight');
 
@@ -86,6 +87,12 @@ export function SearchBar({ editor }: SearchBarProps) {
     matchesRef.current = matches;
     activeIndexRef.current = activeIndex;
 
+    useEffect(() => {
+        return () => {
+            if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        };
+    }, []);
+
     const updateDecorations = useCallback((newMatches: { from: number; to: number }[], newActiveIndex: number) => {
         if (!editor) return;
         editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, { matches: newMatches, activeIndex: newActiveIndex }));
@@ -131,11 +138,17 @@ export function SearchBar({ editor }: SearchBarProps) {
             try {
                 const activeEl = document.querySelector('.search-match-active') as HTMLElement | null;
                 if (activeEl) { activeEl.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
-                const coords = editor?.view.coordsAtPos(match.from);
-                if (coords) {
-                    const target = document.documentElement.scrollTop + coords.top - window.innerHeight / 3;
-                    document.documentElement.scrollTo({ top: target, behavior: 'smooth' });
-                }
+                const coords = ed.view.coordsAtPos(match.from);
+                if (!coords) return;
+                // 使用真正的滚动容器（webview 中可能是 #root 而非 documentElement）
+                const scrollParent = getScrollParent(ed.view.dom);
+                const isPageScroll = scrollParent === document.documentElement || scrollParent === document.body;
+                const containerTop = isPageScroll ? 0 : scrollParent.getBoundingClientRect().top;
+                const currentScroll = isPageScroll
+                    ? (scrollParent.scrollTop || window.scrollY || document.documentElement.scrollTop)
+                    : scrollParent.scrollTop;
+                const target = currentScroll + (coords.top - containerTop) - window.innerHeight / 3;
+                scrollParent.scrollTo({ top: target, behavior: 'smooth' });
             } catch { /* ignore */ }
         });
     }
