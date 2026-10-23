@@ -22,6 +22,10 @@
   gap: 1px;
   flex-wrap: nowrap;
   overflow-x: auto;
+  /* 显式禁止纵向滚动：overflow-x: auto 会让 overflow-y 计算为 auto，
+     而按钮的绝对定位提示文字（::after）会撑大纵向滚动区域，
+     导致鼠标滚轮在工具栏上滚动时把图标整体向上卷走。 */
+  overflow-y: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
   width: 100%;

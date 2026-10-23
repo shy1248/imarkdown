@@ -20,6 +20,7 @@
     "Directory to save pasted images, relative to the document.": "Directory to save pasted images, relative to the document.",
     "Directory to save pasted images. Supports VS Code variables: `${fileDirname}`, `${workspaceFolder}`, `${fileBasename}`, `${fileBasenameNoExtension}`. If the path is relative it is resolved against the document directory.": "Directory to save pasted images. Supports VS Code variables: `${fileDirname}`, `${workspaceFolder}`, `${fileBasename}`, `${fileBasenameNoExtension}`. If the path is relative it is resolved against the document directory.",
     "Show line numbers in code blocks.": "Show line numbers in code blocks.",
+    "Hide the language label in the top-right corner of code blocks (revealed on hover).": "Hide the language label in the top-right corner of code blocks (revealed on hover).",
     "Where to display the document outline.": "Where to display the document outline.",
     "Show outline in VS Code's default outline panel.": "Show outline in VS Code's default outline panel.",
     "Show a floating TOC on the right side of the editor.": "Show a floating TOC on the right side of the editor."

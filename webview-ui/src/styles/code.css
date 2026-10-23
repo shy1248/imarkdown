@@ -90,6 +90,24 @@
     background-color: color-mix(in srgb, var(--vscode-editor-foreground) 12%, var(--vscode-editor-background));
     border-color: color-mix(in srgb, var(--vscode-editorWidget-border) 60%, transparent);
 }
+
+/* ── 隐藏语言标签模式 ──────────────────────────────────────────
+ * 启用 imarkdown.editor.hideCodeLanguageLabel 后，标签默认淡出，
+ * 鼠标悬停在标签本身上时显示。
+ * 标签保留原有布局（opacity 而非 display:none），避免显隐时代码文本重排；
+ * 同时悬停/点击范围与标签的边界框完全一致，不做任何扩大。
+ * 注意：不要通过 JS 给 <pre>/标签增删类名——ProseMirror 会监测属性
+ * 变更并重绘该节点，导致标签反复闪烁。
+ */
+body.hide-code-language-label .ProseMirror pre .code-language-label {
+    opacity: 0;
+    transition: opacity 0.15s, background-color 0.15s, border-color 0.15s;
+}
+
+body.hide-code-language-label .ProseMirror pre .code-language-label:hover {
+    opacity: 1;
+}
+
 .code-lang-dropdown {
     position: fixed;
     z-index: 9999;

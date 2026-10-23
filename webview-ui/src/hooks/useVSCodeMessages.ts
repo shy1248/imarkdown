@@ -253,6 +253,11 @@ export function useVSCodeMessages({
                     ed.view.dispatch(tr);
                 }
             }),
+
+            onMessage('languageLabelConfigChanged', (msg) => {
+                // 仅通过 body 类切换样式，无需重绘编辑器
+                document.body.classList.toggle('hide-code-language-label', !!msg.hideCodeLanguageLabel);
+            }),
         ];
 
         markHandlersReady();

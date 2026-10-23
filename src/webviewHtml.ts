@@ -18,6 +18,9 @@ export function getHtmlForWebview(
     const imarkdownConfig = vscode.workspace.getConfiguration('imarkdown.editor');
     const editorConfig = vscode.workspace.getConfiguration('editor');
 
+    // 用于在首帧渲染前应用隐藏语言标签模式，避免标签闪现
+    const hideCodeLanguageLabel = imarkdownConfig.get<boolean>('hideCodeLanguageLabel', false);
+
     const fontSize = editorConfig.get<number>('fontSize', 15);
     let fontFamily = (editorConfig.get<string>('fontFamily', '') || 'monospace').trim() || 'monospace';
     const codeBlockFontFamily = fontFamily;
@@ -83,7 +86,7 @@ export function getHtmlForWebview(
         .ProseMirror .tiptap-mathematics-block-container { margin: ${blockS} 0; }
     </style>
 </head>
-<body>
+<body class="${hideCodeLanguageLabel ? 'hide-code-language-label' : ''}">
     <div id="root"></div>
     <script nonce="${nonce}">
         window.__imarkdownBaseUri = ${JSON.stringify(baseWebviewUri)};

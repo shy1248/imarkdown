@@ -70,6 +70,9 @@ export class IMarkdownEditorProvider implements vscode.CustomTextEditorProvider 
             if (e.affectsConfiguration('imarkdown.editor.codeLineNumbers')) {
                 sendLineNumberConfig(webviewPanel);
             }
+            if (e.affectsConfiguration('imarkdown.editor.hideCodeLanguageLabel')) {
+                sendLanguageLabelConfig(webviewPanel);
+            }
             if (e.affectsConfiguration('workbench.colorTheme') || e.affectsConfiguration('workbench.colorCustomizations')) {
                 sendThemeUpdate(webviewPanel);
             }
@@ -107,6 +110,8 @@ export class IMarkdownEditorProvider implements vscode.CustomTextEditorProvider 
         webviewPanel.webview.postMessage({ type: 'baseUriChanged', baseUri: baseWebviewUri });
         // 发送初始行号配置
         sendLineNumberConfig(webviewPanel);
+        // 发送初始语言标签配置
+        sendLanguageLabelConfig(webviewPanel);
 
         // --- 内部辅助函数 ---
 
@@ -202,4 +207,10 @@ function sendLineNumberConfig(panel: vscode.WebviewPanel) {
     const cfg = vscode.workspace.getConfiguration('imarkdown.editor');
     const codeLineNumbers = cfg.get<boolean>('codeLineNumbers', false);
     panel.webview.postMessage({ type: 'lineNumberConfigChanged', codeLineNumbers });
+}
+
+function sendLanguageLabelConfig(panel: vscode.WebviewPanel) {
+    const cfg = vscode.workspace.getConfiguration('imarkdown.editor');
+    const hideCodeLanguageLabel = cfg.get<boolean>('hideCodeLanguageLabel', false);
+    panel.webview.postMessage({ type: 'languageLabelConfigChanged', hideCodeLanguageLabel });
 }

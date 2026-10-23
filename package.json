@@ -2,7 +2,7 @@
     "name": "imarkdown-editor",
     "displayName": "iMarkdown - Markdown WYSIWYG Editor",
     "description": "Markdown editor with WYSIWYG mode.",
-    "version": "1.0.17",
+    "version": "1.0.18",
     "publisher": "shy1248",
     "repository": {
         "type": "git",
@@ -155,6 +155,12 @@
                     "default": false,
                     "description": "%Show line numbers in code blocks.%",
                     "markdownDescription": "%Show line numbers in code blocks.%"
+                },
+                "imarkdown.editor.hideCodeLanguageLabel": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "%Hide the language label in the top-right corner of code blocks (revealed on hover).%",
+                    "markdownDescription": "%Hide the language label in the top-right corner of code blocks (revealed on hover).%"
                 },
                 "imarkdown.image.saveDir": {
                     "type": "string",

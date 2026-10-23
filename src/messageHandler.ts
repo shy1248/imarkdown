@@ -98,6 +98,10 @@ export function registerMessageHandler(ctx: MessageContext): void {
                         .getConfiguration('imarkdown.editor')
                         .get<boolean>('codeLineNumbers', false);
                     ctx.webviewPanel.webview.postMessage({ type: 'lineNumberConfigChanged', codeLineNumbers });
+                    const hideCodeLanguageLabel = vscode.workspace
+                        .getConfiguration('imarkdown.editor')
+                        .get<boolean>('hideCodeLanguageLabel', false);
+                    ctx.webviewPanel.webview.postMessage({ type: 'languageLabelConfigChanged', hideCodeLanguageLabel });
                 });
                 return;
 

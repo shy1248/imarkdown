@@ -50,6 +50,8 @@
     // 编辑器偏好布局模式：compact，moderate，loose，默认值：moderate
     "imarkdown.editor.layout": "moderate",
     // 是否显示代码块内的行号，默认值：false
-    "imarkdown.editor.codeLineNumbers": false
+    "imarkdown.editor.codeLineNumbers": false,
+    // 是否隐藏代码块右上角的语言标签（悬停右上角时显示），默认值：false
+    "imarkdown.editor.hideCodeLanguageLabel": false
 }
 ```

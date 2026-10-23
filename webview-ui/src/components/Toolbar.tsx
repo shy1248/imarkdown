@@ -1,4 +1,4 @@
-﻿import { useMemo, Fragment } from 'react';
+import { useMemo, Fragment } from 'react';
 import { Editor } from '@tiptap/core';
 import { getAllCommands, getGroupLabel, type CommandDefined } from '../editor/editorCommands';
 import { SearchBar } from './SearchBar';

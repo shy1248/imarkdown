@@ -20,6 +20,7 @@
     "Directory to save pasted images, relative to the document.": "粘贴图片的保存目录，相对于文档位置。",
     "Directory to save pasted images. Supports VS Code variables: `${fileDirname}`, `${workspaceFolder}`, `${fileBasename}`, `${fileBasenameNoExtension}`. If the path is relative it is resolved against the document directory.": "粘贴图片的保存目录。支持 VS Code 变量：`${fileDirname}`（文档所在目录）、`${workspaceFolder}`（工作区根目录）、`${fileBasename}`（文档文件名）、`${fileBasenameNoExtension}`（不含扩展名的文档文件名）。相对路径以文档目录为基准解析。",
     "Show line numbers in code blocks.": "在代码块中显示行号。",
+    "Hide the language label in the top-right corner of code blocks (revealed on hover).": "隐藏代码块右上角的语言标签（鼠标悬停时显示）。",
     "Where to display the document outline.": "文档大纲的显示位置。",
     "Show outline in VS Code's default outline panel.": "在 VS Code 默认大纲面板中显示。",
     "Show a floating TOC on the right side of the editor.": "在编辑器右侧浮动显示目录。"
